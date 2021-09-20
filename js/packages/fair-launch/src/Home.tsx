@@ -467,7 +467,7 @@ const Home = (props: HomeProps) => {
     candyMachine?.state.goLiveDate.lt(fairLaunch?.state.data.phaseTwoEnd);
 
   return (
-    <Container>
+    <Container  style={{ position: 'relative' }}>
       <AppBar position="static" style={{ marginBottom: 50, background: 'transparent' }}>
         <Toolbar>
           <Typography variant="h6" style={{ fontWeight: 900, color: '#ECE3B1', flexGrow: 1 }}>
@@ -490,22 +490,24 @@ const Home = (props: HomeProps) => {
         </Toolbar>
       </AppBar>
 
-      <div style={{
-        position: 'fixed',
-        top: 150,
-        left: -150,
-        background: 'url("image 6.png")',
-        width: 300,
-        height: 300,
-        borderRadius: '330px 330px 0px 0px',
-        border: '5px solid #ECE3B1',
-      }} />
 
       <div style={{
-        position: 'fixed',
+          position: 'absolute',
+          top: 150,
+          left: -120,
+          background: 'url("image 6.png")',
+          width: 300,
+          height: 300,
+          borderRadius: '330px 330px 0px 0px',
+          border: '5px solid #ECE3B1',
+        }} />
+
+      <div style={{
+        position: 'absolute',
         top: 150,
-        right: -150,
+        right: -120,
         background: 'url("image 7.png")',
+        transform: 'scaleX(-1)',
         width: 300,
         height: 300,
         borderRadius: '330px 330px 0px 0px',
@@ -513,6 +515,8 @@ const Home = (props: HomeProps) => {
       }} />
 
       <Container maxWidth="sm" style={{ position: 'relative' }}>
+
+
         <Paper
           style={{ padding: 24, backgroundColor: '#151A1F', borderRadius: 6 }}
         >
@@ -913,13 +917,9 @@ const Home = (props: HomeProps) => {
             )} */}
           </Grid>
         </Paper>
-      </Container>
 
-      {fairLaunch && (
-        <Container
-          maxWidth="sm"
-          style={{ position: 'relative', marginTop: 10 }}
-        >
+
+        {fairLaunch && (
           <div style={{ margin: 20 }}>
             <Grid container direction="row" wrap="nowrap">
               <Grid container md={4} direction="column">
@@ -963,8 +963,10 @@ const Home = (props: HomeProps) => {
               </Grid>
             </Grid>
           </div>
-        </Container>
-      )}
+        )}
+
+      </Container>
+
       <Snackbar
         open={alertState.open}
         autoHideDuration={6000}
