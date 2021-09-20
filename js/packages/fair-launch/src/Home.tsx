@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import {
+  AppBar,
   CircularProgress,
   Container,
   IconButton,
   Link,
   Slider,
   Snackbar,
+  Toolbar,
 } from '@material-ui/core';
 import Button from '@material-ui/core/Button';
 import Paper from '@material-ui/core/Paper';
@@ -43,6 +45,8 @@ import {
 } from './fair-launch';
 
 import { formatNumber, getAtaForMint, toDate } from './utils';
+import TwitterIcon from '@material-ui/icons/Twitter';
+import GitHubIcon from '@material-ui/icons/GitHub';
 
 const ConnectButton = styled(WalletDialogButton)`
 width: 100%;
@@ -463,7 +467,51 @@ const Home = (props: HomeProps) => {
     candyMachine?.state.goLiveDate.lt(fairLaunch?.state.data.phaseTwoEnd);
 
   return (
-    <Container style={{ marginTop: 100 }}>
+    <Container>
+      <AppBar position="static" style={{ marginBottom: 50, background: 'transparent' }}>
+        <Toolbar>
+          <Typography variant="h6" style={{ fontWeight: 900, color: '#ECE3B1', flexGrow: 1 }}>
+            #theRealLitJesus
+          </Typography>
+          <IconButton
+            edge="end"
+            color="inherit"
+            onClick={() => window.open('https://github.com/metaplex-foundation/metaplex', '_blank')}
+          >
+            <GitHubIcon />
+          </IconButton>
+          <IconButton
+            edge="end"
+            color="inherit"
+            onClick={() => window.open('https://twitter.com/therealLitJesus', '_blank')}
+          >
+            <TwitterIcon />
+          </IconButton>
+        </Toolbar>
+      </AppBar>
+
+      <div style={{
+        position: 'fixed',
+        top: 150,
+        left: -150,
+        background: 'url("image 6.png")',
+        width: 300,
+        height: 300,
+        borderRadius: '330px 330px 0px 0px',
+        border: '5px solid #ECE3B1',
+      }} />
+
+      <div style={{
+        position: 'fixed',
+        top: 150,
+        right: -150,
+        background: 'url("image 7.png")',
+        width: 300,
+        height: 300,
+        borderRadius: '330px 330px 0px 0px',
+        border: '5px solid #ECE3B1',
+      }} />
+
       <Container maxWidth="sm" style={{ position: 'relative' }}>
         <Paper
           style={{ padding: 24, backgroundColor: '#151A1F', borderRadius: 6 }}
