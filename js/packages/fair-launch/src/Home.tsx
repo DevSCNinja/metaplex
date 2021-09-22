@@ -495,7 +495,7 @@ const Home = (props: HomeProps) => {
 
   return (
     <Container  style={{ position: 'relative' }}>
-      <AppBar position="static" style={{ marginBottom: 50, background: 'transparent' }}>
+      <AppBar position="static" elevation={0} style={{ marginBottom: 50, background: 'transparent' }}>
         <Toolbar>
           <Typography variant="h6" style={{ fontWeight: 900, color: '#ECE3B1', flexGrow: 1 }}>
             #theRealLitJesus
