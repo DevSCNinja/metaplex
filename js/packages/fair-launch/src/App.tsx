@@ -99,12 +99,12 @@ const App = () => {
         imageRef.current.src = 'bg.png';
       }
     }
-  }, [])
+  }, []);
 
   return (
     <ThemeProvider theme={theme}>
       <ConnectionProvider endpoint={endpoint}>
-        <WalletProvider wallets={wallets} autoConnect={false}>
+        <WalletProvider wallets={wallets} autoConnect>
           <WalletDialogProvider>
             <ConfettiProvider>
               <canvas ref={canvasRef} style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh' }} />

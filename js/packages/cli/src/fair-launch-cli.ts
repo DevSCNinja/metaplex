@@ -7,6 +7,7 @@ import { Token, MintLayout } from '@solana/spl-token';
 import {
   CACHE_PATH,
   FAIR_LAUNCH_PROGRAM_ID,
+  TOKEN_METADATA_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from './helpers/constants';
 import {
@@ -19,6 +20,7 @@ import {
   getAtaForMint,
   getFairLaunchTicketSeqLookup,
   getFairLaunchLotteryBitmap,
+  getMetadata,
 } from './helpers/accounts';
 import { chunks, getMultipleAccounts, sleep } from './helpers/various';
 import { createAssociatedTokenAccountInstruction } from './helpers/instructions';
@@ -29,9 +31,6 @@ if (!fs.existsSync(CACHE_PATH)) {
   fs.mkdirSync(CACHE_PATH);
 }
 
-const FAIR_LAUNCH_TICKET_AMOUNT_LOC = 8 + 32 + 32;
-const FAIR_LAUNCH_TICKET_STATE_LOC = FAIR_LAUNCH_TICKET_AMOUNT_LOC + 8;
-const FAIR_LAUNCH_TICKET_SEQ_LOC = FAIR_LAUNCH_TICKET_STATE_LOC + 1 + 1;
 const FAIR_LAUNCH_LOTTERY_SIZE =
   8 + // discriminator
   32 + // fair launch
@@ -826,6 +825,93 @@ async function adjustTicket({
 }
 
 program
+  .command('set_token_metadata')
+  .option(
+    '-e, --env <string>',
+    'Solana cluster env name',
+    'devnet', //mainnet-beta, testnet, devnet
+  )
+  .option(
+    '-k, --keypair <path>',
+    `Solana wallet location`,
+    '--keypair not provided',
+  )
+  .option('-f, --fair-launch <string>', 'fair launch id')
+  .option('-n, --name <string>', 'name')
+  .option('-s, --symbol <string>', 'symbol')
+  .option('-u, --uri <string>', 'uri')
+  .option(
+    '-sfbp, --seller-fee-basis-points <string>',
+    'seller fee basis points',
+  )
+  .option(
+    '-c, --creators <string>',
+    'comma separated creator wallets like wallet1,73,true,wallet2,27,false where its wallet, then share, then verified true/false',
+  )
+  .option('-nm, --is_not_mutable', 'is not mutable')
+  .action(async (_, cmd) => {
+    const {
+      env,
+      keypair,
+      fairLaunch,
+      name,
+      symbol,
+      uri,
+      sellerFeeBasisPoints,
+      creators,
+      isNotMutable,
+    } = cmd.opts();
+    const sellerFeeBasisPointsNumber = parseInt(sellerFeeBasisPoints);
+
+    const creatorsListPre = creators ? creators.split(',') : [];
+    const creatorsList = [];
+    for (let i = 0; i < creatorsListPre.length; i += 3) {
+      creatorsList.push({
+        address: new anchor.web3.PublicKey(creatorsListPre[i]),
+        share: parseInt(creatorsListPre[i + 1]),
+        verified: creatorsListPre[i + 2] == 'true' ? true : false,
+      });
+    }
+    const isMutableBool = isNotMutable ? false : true;
+    const walletKeyPair = loadWalletKey(keypair);
+    const anchorProgram = await loadFairLaunchProgram(walletKeyPair, env);
+
+    const fairLaunchKey = new anchor.web3.PublicKey(fairLaunch);
+    const fairLaunchObj = await anchorProgram.account.fairLaunch.fetch(
+      fairLaunchKey,
+    );
+
+    await anchorProgram.rpc.setTokenMetadata(
+      {
+        name,
+        symbol,
+        uri,
+        sellerFeeBasisPoints: sellerFeeBasisPointsNumber,
+        creators: creatorsList,
+        isMutable: isMutableBool,
+      },
+      {
+        accounts: {
+          fairLaunch: fairLaunchKey,
+          authority: walletKeyPair.publicKey,
+          payer: walletKeyPair.publicKey,
+          //@ts-ignore
+          metadata: await getMetadata(fairLaunchObj.tokenMint),
+          //@ts-ignore
+          tokenMint: fairLaunchObj.tokenMint,
+          tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: anchor.web3.SystemProgram.programId,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+          clock: anchor.web3.SYSVAR_CLOCK_PUBKEY,
+        },
+      },
+    );
+
+    console.log('Set token metadata.');
+  });
+
+program
   .command('adjust_ticket')
   .option(
     '-e, --env <string>',
@@ -858,9 +944,8 @@ program
       )
     )[0];
 
-    const fairLaunchLotteryBitmap = ( //@ts-ignore
-      await getFairLaunchLotteryBitmap(fairLaunchObj.tokenMint)
-    )[0];
+    const fairLaunchLotteryBitmap = //@ts-ignore
+    (await getFairLaunchLotteryBitmap(fairLaunchObj.tokenMint))[0];
 
     await adjustTicket({
       amountNumber,
@@ -1189,9 +1274,8 @@ program
       )
     )[0];
 
-    const fairLaunchLotteryBitmap = ( //@ts-ignore
-      await getFairLaunchLotteryBitmap(fairLaunchObj.tokenMint)
-    )[0];
+    const fairLaunchLotteryBitmap = //@ts-ignore
+    (await getFairLaunchLotteryBitmap(fairLaunchObj.tokenMint))[0];
 
     const ticket = await anchorProgram.account.fairLaunchTicket.fetch(
       fairLaunchTicket,
@@ -1314,9 +1398,8 @@ program
     const fairLaunchObj = await anchorProgram.account.fairLaunch.fetch(
       fairLaunchKey,
     );
-    const fairLaunchLotteryBitmap = ( //@ts-ignore
-      await getFairLaunchLotteryBitmap(fairLaunchObj.tokenMint)
-    )[0];
+    const fairLaunchLotteryBitmap = //@ts-ignore
+    (await getFairLaunchLotteryBitmap(fairLaunchObj.tokenMint))[0];
 
     await anchorProgram.rpc.startPhaseThree({
       accounts: {
@@ -1622,52 +1705,48 @@ program
 
     const ticketsFlattened = ticketKeys.flat();
 
-    const states: { seq: anchor.BN; eligible: boolean }[][] = await Promise.all(
-      chunks(Array.from(Array(ticketsFlattened.length).keys()), 1000).map(
-        async allIndexesInSlice => {
-          let states = [];
-          for (let i = 0; i < allIndexesInSlice.length; i += 100) {
-            console.log(
-              'Pulling states for slice',
-              allIndexesInSlice[i],
-              allIndexesInSlice[i + 100],
-            );
-            const slice = allIndexesInSlice
-              .slice(i, i + 100)
-              .map(index => ticketsFlattened[index]);
-            const result = await getMultipleAccounts(
-              anchorProgram.provider.connection,
-              slice.map(s => s.toBase58()),
-              'recent',
-            );
-            states = states.concat(
-              result.array.map(a => ({
-                seq: new anchor.BN(
-                  a.data.slice(
-                    FAIR_LAUNCH_TICKET_SEQ_LOC,
-                    FAIR_LAUNCH_TICKET_SEQ_LOC + 8,
-                  ),
-                  undefined,
-                  'le',
-                ),
-                eligible:
-                  a.data[FAIR_LAUNCH_TICKET_STATE_LOC] == 1 &&
-                  new anchor.BN(
-                    a.data.slice(
-                      FAIR_LAUNCH_TICKET_AMOUNT_LOC,
-                      FAIR_LAUNCH_TICKET_AMOUNT_LOC + 8,
+    const states: { seq: number; number: anchor.BN; eligible: boolean }[][] =
+      await Promise.all(
+        chunks(Array.from(Array(ticketsFlattened.length).keys()), 1000).map(
+          async allIndexesInSlice => {
+            let states = [];
+            for (let i = 0; i < allIndexesInSlice.length; i += 100) {
+              console.log(
+                'Pulling states for slice',
+                allIndexesInSlice[i],
+                allIndexesInSlice[i + 100],
+              );
+              const slice = allIndexesInSlice
+                .slice(i, i + 100)
+                .map(index => ticketsFlattened[index]);
+              const result = await getMultipleAccounts(
+                anchorProgram.provider.connection,
+                slice.map(s => s.toBase58()),
+                'recent',
+              );
+              states = states.concat(
+                result.array.map(a => {
+                  const el = anchorProgram.coder.accounts.decode(
+                    'FairLaunchTicket',
+                    a.data,
+                  );
+                  return {
+                    seq: el.seq.toNumber(),
+                    number: el.amount.toNumber(),
+                    eligible: !!(
+                      el.state.unpunched &&
+                      el.amount.toNumber() >=
+                        //@ts-ignore
+                        fairLaunchObj.currentMedian.toNumber()
                     ),
-                    undefined,
-                    'le',
-                    //@ts-ignore
-                  ).toNumber() >= fairLaunchObj.currentMedian.toNumber(),
-              })),
-            );
-            return states;
-          }
-        },
-      ),
-    );
+                  };
+                }),
+              );
+              return states;
+            }
+          },
+        ),
+      );
 
     const statesFlat = states.flat();
 
@@ -1678,13 +1757,7 @@ program
       statesFlat.filter(s => s.eligible).length,
     );
 
-    console.log(
-      'Dunn',
-      //@ts-ignore;
-      fairLaunchObj.numberTicketsSold - fairLaunchObj.numberTicketsDropped,
-    );
-
-    let chosen: { seq: anchor.BN; eligible: boolean; chosen: boolean }[];
+    let chosen: { seq: number; eligible: boolean; chosen: boolean }[];
     if (numWinnersRemaining >= statesFlat.length) {
       console.log('More or equal nfts than winners, everybody wins.');
       chosen = statesFlat.map(s => ({ ...s, chosen: true }));
@@ -1700,7 +1773,7 @@ program
         }
       }
     }
-    const sorted = chosen.sort((a, b) => a.seq.toNumber() - b.seq.toNumber());
+    const sorted = chosen.sort((a, b) => a.seq - b.seq);
     console.log('Lottery results', sorted);
 
     await Promise.all(
@@ -1830,6 +1903,9 @@ program
             payer: walletKeyPair.publicKey,
             systemProgram: anchor.web3.SystemProgram.programId,
             rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+          },
+          options: {
+            commitment: 'single',
           },
           signers: [],
         });
