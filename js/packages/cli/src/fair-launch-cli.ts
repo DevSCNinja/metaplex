@@ -817,6 +817,7 @@ async function adjustTicket({
     payer,
     instructions,
     signers,
+    'single',
   );
 
   console.log(
@@ -1227,6 +1228,9 @@ async function punchTicket({
       //@ts-ignore
       tokenMint: fairLaunchObj.tokenMint,
       tokenProgram: TOKEN_PROGRAM_ID,
+    },
+    options: {
+      commitment: 'single',
     },
     //__private: { logAccounts: true },
     instructions: [

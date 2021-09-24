@@ -434,15 +434,25 @@ const Home = (props: HomeProps) => {
 
     console.log('deposit');
     setIsMinting(true);
-    await purchaseTicket(contributed, anchorWallet, fairLaunch);
-    setIsMinting(false);
-    setAlertState({
-      open: true,
-      message: `Congratulations! Bid ${
-        fairLaunch?.ticket.data ? 'updated' : 'inserted'
-      }!`,
-      severity: 'success',
-    });
+    try {
+      await purchaseTicket(contributed, anchorWallet, fairLaunch);
+      setIsMinting(false);
+      setAlertState({
+        open: true,
+        message: `Congratulations! Bid ${
+          fairLaunch?.ticket.data ? 'updated' : 'inserted'
+        }!`,
+        severity: 'success',
+      });
+    } catch (e) {
+      console.log(e);
+      setIsMinting(false);
+      setAlertState({
+        open: true,
+        message: 'Something went wrong.',
+        severity: 'error',
+      });
+    }
   };
   const onRugRefund = async () => {
     if (!anchorWallet) {
@@ -450,15 +460,25 @@ const Home = (props: HomeProps) => {
     }
 
     console.log('refund');
-    setIsMinting(true);
-    await receiveRefund(anchorWallet, fairLaunch);
-    setIsMinting(false);
-    setAlertState({
-      open: true,
-      message:
-        'Congratulations! You have received a refund. This is an irreversible action.',
-      severity: 'success',
-    });
+    try {
+      setIsMinting(true);
+      await receiveRefund(anchorWallet, fairLaunch);
+      setIsMinting(false);
+      setAlertState({
+        open: true,
+        message:
+          'Congratulations! You have received a refund. This is an irreversible action.',
+        severity: 'success',
+      });
+    } catch (e) {
+      console.log(e);
+      setIsMinting(false);
+      setAlertState({
+        open: true,
+        message: 'Something went wrong.',
+        severity: 'error',
+      });
+    }
   };
   const onRefundTicket = async () => {
     if (!anchorWallet) {
@@ -466,15 +486,25 @@ const Home = (props: HomeProps) => {
     }
 
     console.log('refund');
-    setIsMinting(true);
-    await purchaseTicket(0, anchorWallet, fairLaunch);
-    setIsMinting(false);
-    setAlertState({
-      open: true,
-      message:
-        'Congratulations! Funds withdrawn. This is an irreversible action.',
-      severity: 'success',
-    });
+    try {
+      setIsMinting(true);
+      await purchaseTicket(0, anchorWallet, fairLaunch);
+      setIsMinting(false);
+      setAlertState({
+        open: true,
+        message:
+          'Congratulations! Funds withdrawn. This is an irreversible action.',
+        severity: 'success',
+      });
+    } catch (e) {
+      console.log(e);
+      setIsMinting(false);
+      setAlertState({
+        open: true,
+        message: 'Something went wrong.',
+        severity: 'error',
+      });
+    }
   };
 
   const onPunchTicket = async () => {
@@ -484,13 +514,23 @@ const Home = (props: HomeProps) => {
 
     console.log('punch');
     setIsMinting(true);
-    await punchTicket(anchorWallet, fairLaunch);
-    setIsMinting(false);
-    setAlertState({
-      open: true,
-      message: 'Congratulations! Ticket punched!',
-      severity: 'success',
-    });
+    try {
+      await punchTicket(anchorWallet, fairLaunch);
+      setIsMinting(false);
+      setAlertState({
+        open: true,
+        message: 'Congratulations! Ticket punched!',
+        severity: 'success',
+      });
+    } catch (e) {
+      console.log(e);
+      setIsMinting(false);
+      setAlertState({
+        open: true,
+        message: 'Something went wrong.',
+        severity: 'error',
+      });
+    }
   };
 
   const phase = getPhase(fairLaunch, candyMachine);
@@ -948,46 +988,45 @@ const Home = (props: HomeProps) => {
                         {fairLaunch.state.data.antiRugSetting.reserveBp / 100}%
                         of the cost of your token.
                       </p>
-                      <MintButton
-                        onClick={onRugRefund}
-                        variant="contained"
-                        disabled={
-                          !!!fairLaunch.ticket.data ||
-                          !fairLaunch.ticket.data.state.punched ||
-                          Date.now() / 1000 <
-                            fairLaunch.state.data.antiRugSetting.selfDestructDate.toNumber()
-                        }
-                      >
-                        {isMinting ? (
-                          <CircularProgress />
-                        ) : Date.now() / 1000 <
-                          fairLaunch.state.data.antiRugSetting.selfDestructDate.toNumber() ? (
-                          <span>
-                            Refund in...
-                            <Countdown
-                              date={toDate(
-                                fairLaunch.state.data.antiRugSetting
-                                  .selfDestructDate,
-                              )}
-                            />
-                          </span>
-                        ) : (
-                          'Refund'
+                      {fairLaunch?.ticket?.data &&
+                        !fairLaunch?.ticket?.data.state.withdrawn && (
+                          <MintButton
+                            onClick={onRugRefund}
+                            variant="contained"
+                            disabled={
+                              !!!fairLaunch.ticket.data ||
+                              !fairLaunch.ticket.data.state.punched ||
+                              Date.now() / 1000 <
+                                fairLaunch.state.data.antiRugSetting.selfDestructDate.toNumber()
+                            }
+                          >
+                            {isMinting ? (
+                              <CircularProgress />
+                            ) : Date.now() / 1000 <
+                              fairLaunch.state.data.antiRugSetting.selfDestructDate.toNumber() ? (
+                              <span>
+                                Refund in...
+                                <Countdown
+                                  date={toDate(
+                                    fairLaunch.state.data.antiRugSetting
+                                      .selfDestructDate,
+                                  )}
+                                />
+                              </span>
+                            ) : (
+                              'Refund'
+                            )}
+                            {}
+                          </MintButton>
                         )}
-                        {}
-                      </MintButton>
                       <div style={{ textAlign: 'center', marginTop: '-5px' }}>
-                        {!!!fairLaunch.ticket.data && (
-                          <small>
-                            You currently have no Fair Launch ticket.
-                          </small>
-                        )}
-                        {!fairLaunch?.ticket?.data?.state.punched && (
-                          <small>
-                            You currently have a ticket but it has not been
-                            punched yet, so cannot be refunded.
-                          </small>
-                        )}
+                        {fairLaunch?.ticket?.data &&
+                          !fairLaunch?.ticket?.data?.state.punched && (
+                            <small>
+                              You currently have a ticket but it has not been
+                              punched yet, so cannot be refunded.
+                            </small>
+                          )}
                       </div>
                     </div>
                   )}
