@@ -354,12 +354,30 @@ pub mod merkle_distributor {
 
         // Transfer the required SOL from the payer
         let required_lamports;
+        let remaining_accounts;
         {
             let rent = &Rent::get()?;
             let mut candy_machine_data: &[u8] = &ctx.accounts.candy_machine.try_borrow_data()?;
-            required_lamports = CandyMachine::try_deserialize(&mut candy_machine_data)?.data.price
-                + rent.minimum_balance(metaplex_token_metadata::state::MAX_METADATA_LEN)
+
+            let candy_machine = CandyMachine::try_deserialize(&mut candy_machine_data)?;
+            let required_rent =
+                  rent.minimum_balance(metaplex_token_metadata::state::MAX_METADATA_LEN)
                 + rent.minimum_balance(metaplex_token_metadata::state::MAX_MASTER_EDITION_LEN);
+
+            if candy_machine.token_mint.is_some() {
+                required_lamports = required_rent;
+
+                // checked by candy machine
+                let token_account_info = &ctx.remaining_accounts[0];
+                let transfer_authority_info = &ctx.remaining_accounts[1];
+                remaining_accounts = vec![
+                    token_account_info.clone(),
+                    transfer_authority_info.clone(),
+                ];
+            } else {
+                required_lamports = candy_machine.data.price + required_rent;
+                remaining_accounts = vec![];
+            }
         }
         msg!(
             "Transferring {} lamports to distributor wallet for candy machine mint",
@@ -402,7 +420,7 @@ pub mod merkle_distributor {
                 rent                   : ctx.accounts.rent.to_account_info(),
                 clock                  : ctx.accounts.clock.to_account_info(),
             },
-            remaining_accounts: vec![],
+            remaining_accounts,
             signer_seeds: &[&wallet_seeds],
         })?;
 
