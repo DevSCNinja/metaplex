@@ -21,7 +21,7 @@ import {
   getCandyConfig,
   getCandyMachineAddress,
   getCandyMachine,
-  getCreatorTokenAccount,
+  getATAChecked,
   getEdition,
   getEditionMarkerPda,
   getMintInfo,
@@ -155,9 +155,9 @@ export const validateTransferClaims = async (
     if (c.amount === 0) throw new Error(`Claimant ${idx} amount is 0`);
   });
 
-  const total = claimants.reduce((acc, c) => acc + c.amount, 0);
+  const total = claimants.reduce((acc, c) => acc.add(new BN(c.amount)), new BN(0));
   const mint = await getMintInfo(connection, mintStr);
-  const source = await getCreatorTokenAccount(
+  const source = await getATAChecked(
     walletKey,
     connection,
     mint.key,
@@ -256,11 +256,11 @@ export const validateEditionClaims = async (
 
   const total = claimants.reduce((acc, c) => acc + c.amount, 0);
   const masterMint = await getMintInfo(connection, masterMintStr);
-  const masterTokenAccount = await getCreatorTokenAccount(
+  const masterTokenAccount = await getATAChecked(
     walletKey,
     connection,
     masterMint.key,
-    1 // just check that the creator has the master mint
+    new BN(1) // just check that the creator has the master mint
   );
 
   const masterEditionKey = await getEdition(masterMint.key);
@@ -565,8 +565,8 @@ export const closeGumdrop = async (
 
   if (claimMethod === "transfer") {
     const mint = await getMintInfo(connection, transferMint);
-    const source = await getCreatorTokenAccount(
-      walletKey, connection, mint.key, 0
+    const source = await getATAChecked(
+      walletKey, connection, mint.key, new BN(0)
     );
     // distributor is about to be closed anyway so this is redundant but...
     instructions.push(Token.createRevokeInstruction(

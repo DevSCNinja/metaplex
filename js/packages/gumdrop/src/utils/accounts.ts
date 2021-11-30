@@ -42,13 +42,13 @@ export const getMintInfo = async (
   };
 };
 
-export const getCreatorTokenAccount = async (
+export const getATAChecked = async (
   walletKey : PublicKey,
   connection : Connection,
   mintKey : PublicKey,
-  totalClaim : number,
-) => {
-  const [creatorTokenKey, ] = await PublicKey.findProgramAddress(
+  totalClaim : BN,
+) : Promise<PublicKey> => {
+  const [ataKey, ] = await PublicKey.findProgramAddress(
     [
       walletKey.toBuffer(),
       TOKEN_PROGRAM_ID.toBuffer(),
@@ -56,18 +56,19 @@ export const getCreatorTokenAccount = async (
     ],
     SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID
   );
-  const creatorTokenAccount = await connection.getAccountInfo(creatorTokenKey);
-  if (creatorTokenAccount === null) {
-    throw new Error(`Could not fetch creator token account`);
+  const ataAccount = await connection.getAccountInfo(ataKey);
+  if (ataAccount === null) {
+    throw new Error(`Failed to fetch associated token account for ${mintKey.toBase58()}`);
   }
-  if (creatorTokenAccount.data.length !== AccountLayout.span) {
-    throw new Error(`Invalid token account size ${creatorTokenAccount.data.length}`);
+  if (ataAccount.data.length !== AccountLayout.span) {
+    throw new Error(`Invalid token account size ${ataAccount.data.length}`);
   }
-  const creatorTokenInfo = AccountLayout.decode(Buffer.from(creatorTokenAccount.data));
-  if (new BN(creatorTokenInfo.amount, 8, "le").toNumber() < totalClaim) {
-    throw new Error(`Creator token account does not have enough tokens`);
+  const ataInfo = AccountLayout.decode(Buffer.from(ataAccount.data));
+  if (new BN(ataInfo.amount, 8, "le").lt(totalClaim)) {
+    // TODO: decimals?
+    throw new Error(`Associated token account does not have enough tokens. Expected ${totalClaim}`);
   }
-  return creatorTokenKey;
+  return ataKey;
 };
 
 export const fetchCoder = async (

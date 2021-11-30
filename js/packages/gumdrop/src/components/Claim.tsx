@@ -22,6 +22,7 @@ import {
   useWallet,
 } from "@solana/wallet-adapter-react";
 import {
+  AccountMeta,
   Connection as RPCConnection,
   Keypair,
   PublicKey,
@@ -57,6 +58,7 @@ import {
 import {
   getCandyMachine,
   getCandyMachineAddress,
+  getATAChecked,
   getEdition,
   getEditionMarkerPda,
   getMetadata,
@@ -321,7 +323,7 @@ const buildCandyClaim = async (
     temporalSigner,
     configKey,
     candyMachineKey,
-    candyMachine.wallet,
+    candyMachine,
     Buffer.from([
       ...new BN(wbump).toArray("le", 1),
       ...new BN(cbump).toArray("le", 1),
@@ -347,15 +349,28 @@ const buildSingleCandyMint = async (
   temporalSigner : PublicKey,
   configKey : PublicKey,
   candyMachineKey : PublicKey,
-  candyMachineWallet : PublicKey,
+  candyMachine : any,
   data : Buffer,
 ) : Promise<[Array<TransactionInstruction>, Keypair]> => {
   const candyMachineMint = Keypair.generate();
   const candyMachineMetadata = await getMetadata(candyMachineMint.publicKey);
   const candyMachineMaster = await getEdition(candyMachineMint.publicKey);
 
+  let extraKeys : Array<AccountMeta> = [];
+  if (candyMachine.tokenMint) {
+    const walletATA = await getATAChecked(
+        walletKey, connection, candyMachine.tokenMint, candyMachine.data.price);
+    extraKeys = [
+      // token account
+      { pubkey: walletATA, isSigner: false, isWritable: true },
+      // transfer authority
+      { pubkey: walletKey, isSigner: true, isWritable: false },
+    ];
+  }
+
   const setup : Array<TransactionInstruction> = [];
   await createMintAndAccount(connection, walletKey, candyMachineMint.publicKey, setup);
+  // TODO: anchorProgram
   setup.push(new TransactionInstruction({
       programId: GUMDROP_DISTRIBUTOR_ID,
       keys: [
@@ -367,7 +382,7 @@ const buildSingleCandyMint = async (
 
           { pubkey: configKey                 , isSigner: false , isWritable: true  } ,
           { pubkey: candyMachineKey           , isSigner: false , isWritable: true  } ,
-          { pubkey: candyMachineWallet        , isSigner: false , isWritable: true  } ,
+          { pubkey: candyMachine.wallet       , isSigner: false , isWritable: true  } ,
           { pubkey: candyMachineMint.publicKey, isSigner: false , isWritable: true  } ,
           { pubkey: candyMachineMetadata      , isSigner: false , isWritable: true  } ,
           { pubkey: candyMachineMaster        , isSigner: false , isWritable: true  } ,
@@ -378,6 +393,7 @@ const buildSingleCandyMint = async (
           { pubkey: CANDY_MACHINE_ID          , isSigner: false , isWritable: false } ,
           { pubkey: SYSVAR_RENT_PUBKEY        , isSigner: false , isWritable: false } ,
           { pubkey: SYSVAR_CLOCK_PUBKEY       , isSigner: false , isWritable: false } ,
+          ...extraKeys,
       ],
       data: Buffer.from([
         ...Buffer.from(sha256.digest("global:claim_candy")).slice(0, 8),
