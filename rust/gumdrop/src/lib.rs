@@ -15,6 +15,26 @@ pub mod merkle_proof;
 
 declare_id!("gdrpGjVffourzkdDRrQmySw4aTHr8a3xmQzzxSwFD1a");
 
+fn verify_temporal<'a>(
+    distributor     : &Account<'a, MerkleDistributor>,
+    temporal        : &Signer<'a>,
+    claimant_secret : Pubkey,
+) -> ProgramResult {
+    require!(
+        // got the OTP auth from the signer specified by the creator
+        temporal.key() == distributor.temporal
+        // the secret used in the hash was a Pubkey (wallet) so proof-of-ownership is achieved by
+        // signing for this transaction
+        || temporal.key() == claimant_secret
+        // the creator decided not to use a temporal signer
+        || distributor.temporal == Pubkey::default()
+        ,
+        TemporalMismatch
+    );
+
+    Ok(())
+}
+
 fn get_or_create_claim_count<'a>(
     distributor     : &Account<'a, MerkleDistributor>,
     claim_count     : &AccountInfo<'a>,
@@ -63,13 +83,7 @@ fn get_or_create_claim_count<'a>(
         anchor_lang::Account::try_from(&claim_count)?;
 
     if create_claim_state {
-        require!(
-            temporal.key() == distributor.temporal
-            || temporal.key() == claimant_secret
-            || distributor.temporal == Pubkey::default()
-            ,
-            TemporalMismatch
-        );
+        verify_temporal(distributor, temporal, claimant_secret)?;
         pa.claimant = payer.key();
     } else {
         require!(
@@ -267,13 +281,7 @@ pub mod merkle_distributor {
             &[ctx.accounts.distributor.bump],
         ];
 
-        require!(
-            ctx.accounts.temporal.key() == distributor.temporal
-            || ctx.accounts.temporal.key() == claimant_secret
-            || distributor.temporal == Pubkey::default()
-            ,
-            TemporalMismatch
-        );
+        verify_temporal(distributor, &ctx.accounts.temporal, claimant_secret)?;
         token::transfer(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
