@@ -28,3 +28,4 @@ spl-associated-token-account = { version = "1.0.3", features = [
 metaplex-token-metadata = { path = "../token-metadata/program", features = [
     "no-entrypoint"
 ] }
+nft-candy-machine = { path = "../nft-candy-machine", features = [ "cpi" ] }

@@ -1321,6 +1321,7 @@ dependencies = [
  "anchor-lang",
  "anchor-spl",
  "metaplex-token-metadata 0.0.1",
+ "nft-candy-machine",
  "solana-program",
  "spl-associated-token-account",
 ]

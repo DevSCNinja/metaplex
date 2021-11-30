@@ -5,7 +5,6 @@ use anchor_spl::token::{self, Token, TokenAccount};
 use solana_program::{
     instruction::{AccountMeta, Instruction},
     program::{invoke, invoke_signed},
-    sysvar::{self},
     system_instruction::self,
 };
 use metaplex_token_metadata::{self};
@@ -304,8 +303,8 @@ pub mod merkle_distributor {
     }
 
     /// Claims NFTs directly from the candy machine through the [MerkleDistributor].
-    pub fn claim_candy(
-        ctx: Context<ClaimCandy>,
+    pub fn claim_candy<'info>(
+        ctx: Context<'_, '_, '_, 'info, ClaimCandy<'info>>,
         _wallet_bump: u8,
         _claim_bump: u8,
         index: u64,
@@ -385,47 +384,27 @@ pub mod merkle_distributor {
             &[_wallet_bump],
         ];
 
-        let candy_machine_infos = [
-            ctx.accounts.candy_machine_config.clone(),
-            ctx.accounts.candy_machine.to_account_info().clone(),
-            ctx.accounts.distributor_wallet.clone(),
-            ctx.accounts.candy_machine_wallet.clone(),
-            ctx.accounts.candy_machine_metadata.clone(),
-            ctx.accounts.candy_machine_mint.clone(),
-            ctx.accounts.payer.to_account_info().clone(),
-            ctx.accounts.candy_machine_master_edition.clone(),
-            ctx.accounts.token_metadata_program.clone(),
-            ctx.accounts.token_program.to_account_info().clone(),
-            ctx.accounts.system_program.to_account_info().clone(),
-            ctx.accounts.rent.to_account_info().clone(),
-            ctx.accounts.clock.to_account_info().clone(),
-        ];
-
-        invoke_signed(
-            &Instruction {
-                program_id: *ctx.accounts.candy_machine_program.key,
-                accounts: vec![
-                    AccountMeta::new_readonly(*ctx.accounts.candy_machine_config.key, false),
-                    AccountMeta::new(ctx.accounts.candy_machine.key(), false),
-                    AccountMeta::new(*ctx.accounts.distributor_wallet.key, true),
-                    AccountMeta::new(*ctx.accounts.candy_machine_wallet.key, false),
-                    AccountMeta::new(*ctx.accounts.candy_machine_metadata.key, false),
-                    AccountMeta::new(*ctx.accounts.candy_machine_mint.key, false),
-                    AccountMeta::new_readonly(*ctx.accounts.payer.key, true),
-                    AccountMeta::new_readonly(*ctx.accounts.payer.key, true),
-                    AccountMeta::new(*ctx.accounts.candy_machine_master_edition.key, false),
-                    AccountMeta::new_readonly(*ctx.accounts.token_metadata_program.key, false),
-                    AccountMeta::new_readonly(*ctx.accounts.token_program.key, false),
-                    AccountMeta::new_readonly(*ctx.accounts.system_program.key, false),
-                    AccountMeta::new_readonly(sysvar::rent::id(), false),
-                    AccountMeta::new_readonly(sysvar::clock::id(), false),
-                ],
-                // TODO. global::mint_nft instruction...
-                data: vec![0xd3, 0x39, 0x06, 0xa7, 0x0f, 0xdb, 0x23, 0xfb],
+        nft_candy_machine::cpi::mint_nft(anchor_lang::CpiContext {
+            program: ctx.accounts.candy_machine_program.to_account_info(),
+            accounts: nft_candy_machine::cpi::accounts::MintNFT {
+                config                 : ctx.accounts.candy_machine_config.clone(),
+                candy_machine          : ctx.accounts.candy_machine.clone(),
+                payer                  : ctx.accounts.distributor_wallet.clone(),
+                wallet                 : ctx.accounts.candy_machine_wallet.clone(),
+                metadata               : ctx.accounts.candy_machine_metadata.clone(),
+                mint                   : ctx.accounts.candy_machine_mint.clone(),
+                mint_authority         : ctx.accounts.payer.to_account_info(),
+                update_authority       : ctx.accounts.payer.to_account_info(),
+                master_edition         : ctx.accounts.candy_machine_master_edition.clone(),
+                token_metadata_program : ctx.accounts.token_metadata_program.to_account_info(),
+                token_program          : ctx.accounts.token_program.to_account_info(),
+                system_program         : ctx.accounts.system_program.to_account_info(),
+                rent                   : ctx.accounts.rent.to_account_info(),
+                clock                  : ctx.accounts.clock.to_account_info(),
             },
-            &candy_machine_infos,
-            &[&wallet_seeds],
-        )?;
+            remaining_accounts: vec![],
+            signer_seeds: &[&wallet_seeds],
+        })?;
 
         // reserialize claim_count
         {
