@@ -332,7 +332,7 @@ const buildCandyClaim = async (
   }
 
   const claimPrefix = Buffer.from("ClaimCount");
-  const setup = new TransactionInstruction({
+  const setup = claimCountAccount !== null ? null : new TransactionInstruction({
       programId: GUMDROP_DISTRIBUTOR_ID,
       keys: [
           { pubkey: distributorKey            , isSigner: false , isWritable: true  } ,
@@ -391,7 +391,7 @@ const buildCandyClaim = async (
       ])
   }));
 
-  return [{ setup: [setup], claim }, pdaSeeds, [candyMachineMint]];
+  return [{ setup: setup === null ? null : [setup], claim }, pdaSeeds, [candyMachineMint]];
 }
 
 const createMintAndAccount = async (
