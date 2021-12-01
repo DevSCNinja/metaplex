@@ -305,8 +305,8 @@ pub mod merkle_distributor {
     /// Claims NFTs directly from the candy machine through the [MerkleDistributor].
     pub fn claim_candy<'info>(
         ctx: Context<'_, '_, '_, 'info, ClaimCandy<'info>>,
-        _wallet_bump: u8,
-        _claim_bump: u8,
+        wallet_bump: u8,
+        claim_bump: u8,
         index: u64,
         amount: u64,
         claimant_secret: Pubkey,
@@ -319,7 +319,7 @@ pub mod merkle_distributor {
             &ctx.accounts.temporal,
             &ctx.accounts.payer,
             &ctx.accounts.system_program,
-            _claim_bump,
+            claim_bump,
             index,
             claimant_secret,
         )?;
@@ -350,79 +350,29 @@ pub mod merkle_distributor {
         );
 
         // Mark it claimed
-        claim_count.count += 1;
+        claim_count.count = claim_count.count
+            .checked_add(1)
+            .ok_or(ErrorCode::NumericalOverflow)?;
 
-        // Transfer the required SOL from the payer
-        let required_lamports;
-        let remaining_accounts;
-        {
-            let rent = &Rent::get()?;
-            let mut candy_machine_data: &[u8] = &ctx.accounts.candy_machine.try_borrow_data()?;
-
-            let candy_machine = CandyMachine::try_deserialize(&mut candy_machine_data)?;
-            let required_rent =
-                  rent.minimum_balance(metaplex_token_metadata::state::MAX_METADATA_LEN)
-                + rent.minimum_balance(metaplex_token_metadata::state::MAX_MASTER_EDITION_LEN);
-
-            if candy_machine.token_mint.is_some() {
-                required_lamports = required_rent;
-
-                // checked by candy machine
-                let token_account_info = &ctx.remaining_accounts[0];
-                let transfer_authority_info = &ctx.remaining_accounts[1];
-                remaining_accounts = vec![
-                    token_account_info.clone(),
-                    transfer_authority_info.clone(),
-                ];
-            } else {
-                required_lamports = candy_machine.data.price + required_rent;
-                remaining_accounts = vec![];
-            }
-        }
-        msg!(
-            "Transferring {} lamports to distributor wallet for candy machine mint",
-            required_lamports,
-        );
-        invoke(
-            &system_instruction::transfer(
-                ctx.accounts.payer.key,
-                ctx.accounts.distributor_wallet.key,
-                required_lamports,
-            ),
-            &[
-                ctx.accounts.payer.to_account_info().clone(),
-                ctx.accounts.distributor_wallet.clone(),
-                ctx.accounts.system_program.to_account_info().clone(),
-            ],
+        issue_mint_nft(
+            &distributor,
+            &ctx.accounts.distributor_wallet,
+            &ctx.accounts.payer,
+            &ctx.accounts.candy_machine_config,
+            &ctx.accounts.candy_machine,
+            &ctx.accounts.candy_machine_wallet,
+            &ctx.accounts.candy_machine_mint,
+            &ctx.accounts.candy_machine_metadata,
+            &ctx.accounts.candy_machine_master_edition,
+            &ctx.accounts.system_program,
+            &ctx.accounts.token_program,
+            &ctx.accounts.token_metadata_program,
+            &ctx.accounts.candy_machine_program,
+            &ctx.accounts.rent,
+            &ctx.accounts.clock,
+            &ctx.remaining_accounts,
+            wallet_bump,
         )?;
-
-        let wallet_seeds = [
-            b"Wallet".as_ref(),
-            &distributor.key().to_bytes(),
-            &[_wallet_bump],
-        ];
-
-        nft_candy_machine::cpi::mint_nft(anchor_lang::CpiContext {
-            program: ctx.accounts.candy_machine_program.to_account_info(),
-            accounts: nft_candy_machine::cpi::accounts::MintNFT {
-                config                 : ctx.accounts.candy_machine_config.clone(),
-                candy_machine          : ctx.accounts.candy_machine.clone(),
-                payer                  : ctx.accounts.distributor_wallet.clone(),
-                wallet                 : ctx.accounts.candy_machine_wallet.clone(),
-                metadata               : ctx.accounts.candy_machine_metadata.clone(),
-                mint                   : ctx.accounts.candy_machine_mint.clone(),
-                mint_authority         : ctx.accounts.payer.to_account_info(),
-                update_authority       : ctx.accounts.payer.to_account_info(),
-                master_edition         : ctx.accounts.candy_machine_master_edition.clone(),
-                token_metadata_program : ctx.accounts.token_metadata_program.to_account_info(),
-                token_program          : ctx.accounts.token_program.to_account_info(),
-                system_program         : ctx.accounts.system_program.to_account_info(),
-                rent                   : ctx.accounts.rent.to_account_info(),
-                clock                  : ctx.accounts.clock.to_account_info(),
-            },
-            remaining_accounts,
-            signer_seeds: &[&wallet_seeds],
-        })?;
 
         // reserialize claim_count
         {
@@ -436,7 +386,7 @@ pub mod merkle_distributor {
     /// Claims NFTs by calling MintNewEditionFromMasterEditionViaToken
     pub fn claim_edition(
         ctx: Context<ClaimEdition>,
-        _claim_bump: u8,
+        claim_bump: u8,
         index: u64,
         amount: u64,
         edition: u64,
@@ -450,7 +400,7 @@ pub mod merkle_distributor {
             &ctx.accounts.temporal,
             &ctx.accounts.payer,
             &ctx.accounts.system_program,
-            _claim_bump,
+            claim_bump,
             index,
             claimant_secret,
         )?;
@@ -480,7 +430,9 @@ pub mod merkle_distributor {
         );
 
         // Mark it claimed
-        claim_count.count += 1;
+        claim_count.count = claim_count.count
+            .checked_add(1)
+            .ok_or(ErrorCode::NumericalOverflow)?;
 
         let seeds = [
             b"MerkleDistributor".as_ref(),
@@ -533,6 +485,100 @@ pub mod merkle_distributor {
 
         Ok(())
     }
+}
+
+fn issue_mint_nft<'info>(
+    distributor: &Account<'info, MerkleDistributor>,
+    distributor_wallet: &AccountInfo<'info>,
+    payer: &Signer<'info>,
+    candy_machine_config: &AccountInfo<'info>,
+    candy_machine: &AccountInfo<'info>,
+    candy_machine_wallet: &AccountInfo<'info>,
+    candy_machine_mint: &AccountInfo<'info>,
+    candy_machine_metadata: &AccountInfo<'info>,
+    candy_machine_master_edition: &AccountInfo<'info>,
+    system_program: &Program<'info, System>,
+    token_program: &Program<'info, Token>,
+    token_metadata_program: &AccountInfo<'info>,
+    candy_machine_program: &AccountInfo<'info>,
+    rent: &Sysvar<'info, Rent>,
+    clock: &Sysvar<'info, Clock>,
+    claim_remaining_accounts: &[AccountInfo<'info>],
+    wallet_bump: u8,
+) -> ProgramResult {
+    // Transfer the required SOL from the payer
+    let required_lamports;
+    let remaining_accounts;
+    {
+        let rent = &Rent::get()?;
+        let mut candy_machine_data: &[u8] = &candy_machine.try_borrow_data()?;
+
+        let candy_machine = CandyMachine::try_deserialize(&mut candy_machine_data)?;
+        let required_rent =
+              rent.minimum_balance(metaplex_token_metadata::state::MAX_METADATA_LEN)
+            + rent.minimum_balance(metaplex_token_metadata::state::MAX_MASTER_EDITION_LEN);
+
+        if candy_machine.token_mint.is_some() {
+            required_lamports = required_rent;
+
+            // checked by candy machine
+            let token_account_info = &claim_remaining_accounts[0];
+            let transfer_authority_info = &claim_remaining_accounts[1];
+            remaining_accounts = vec![
+                token_account_info.clone(),
+                transfer_authority_info.clone(),
+            ];
+        } else {
+            required_lamports = candy_machine.data.price + required_rent;
+            remaining_accounts = vec![];
+        }
+    }
+    msg!(
+        "Transferring {} lamports to distributor wallet for candy machine mint",
+        required_lamports,
+    );
+    invoke(
+        &system_instruction::transfer(
+            payer.key,
+            distributor_wallet.key,
+            required_lamports,
+        ),
+        &[
+            payer.to_account_info().clone(),
+            distributor_wallet.clone(),
+            system_program.to_account_info().clone(),
+        ],
+    )?;
+
+    let wallet_seeds = [
+        b"Wallet".as_ref(),
+        &distributor.key().to_bytes(),
+        &[wallet_bump],
+    ];
+
+    nft_candy_machine::cpi::mint_nft(anchor_lang::CpiContext {
+        program: candy_machine_program.to_account_info(),
+        accounts: nft_candy_machine::cpi::accounts::MintNFT {
+            config                 : candy_machine_config.clone(),
+            candy_machine          : candy_machine.clone(),
+            payer                  : distributor_wallet.clone(),
+            wallet                 : candy_machine_wallet.clone(),
+            metadata               : candy_machine_metadata.clone(),
+            mint                   : candy_machine_mint.clone(),
+            mint_authority         : payer.to_account_info(),
+            update_authority       : payer.to_account_info(),
+            master_edition         : candy_machine_master_edition.clone(),
+            token_metadata_program : token_metadata_program.to_account_info(),
+            token_program          : token_program.to_account_info(),
+            system_program         : system_program.to_account_info(),
+            rent                   : rent.to_account_info(),
+            clock                  : clock.to_account_info(),
+        },
+        remaining_accounts,
+        signer_seeds: &[&wallet_seeds],
+    })?;
+
+    Ok(())
 }
 
 /// Accounts for [merkle_distributor::new_distributor].
@@ -927,4 +973,6 @@ pub enum ErrorCode {
     OwnerMismatch,
     #[msg("Temporal signer did not match distributor")]
     TemporalMismatch,
+    #[msg("Numerical Overflow")]
+    NumericalOverflow,
 }
