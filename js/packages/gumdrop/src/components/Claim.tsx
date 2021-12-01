@@ -314,45 +314,7 @@ const buildCandyClaim = async (
   const candyMachine = await getCandyMachine(connection, candyMachineKey);
   console.log("Candy Machine", candyMachine);
 
-  const candyMachineMints : Array<Keypair> = [];
 
-  const [instrs, mint] = await buildSingleCandyMint(
-    connection,
-    walletKey,
-    distributorKey,
-    distributorWalletKey,
-    claimCount,
-    temporalSigner,
-    configKey,
-    candyMachineKey,
-    candyMachine,
-    Buffer.from([
-      ...new BN(wbump).toArray("le", 1),
-      ...new BN(cbump).toArray("le", 1),
-      ...new BN(index).toArray("le", 8),
-      ...new BN(amount).toArray("le", 8),
-      ...secret.toBuffer(),
-      ...new BN(proof.length).toArray("le", 4),
-      ...Buffer.concat(proof),
-    ]),
-  );
-  candyMachineMints.push(mint);
-
-  return [instrs, pdaSeeds, candyMachineMints];
-}
-
-const buildSingleCandyMint = async (
-  connection : RPCConnection,
-  walletKey : PublicKey,
-  distributorKey : PublicKey,
-  distributorWalletKey : PublicKey,
-  claimCount : PublicKey,
-  temporalSigner : PublicKey,
-  configKey : PublicKey,
-  candyMachineKey : PublicKey,
-  candyMachine : any,
-  data : Buffer,
-) : Promise<[ClaimInstructions, Keypair]> => {
   const candyMachineMint = Keypair.generate();
   const candyMachineMetadata = await getMetadata(candyMachineMint.publicKey);
   const candyMachineMaster = await getEdition(candyMachineMint.publicKey);
@@ -369,17 +331,42 @@ const buildSingleCandyMint = async (
     ];
   }
 
-  const setup : Array<TransactionInstruction> = [];
-  await createMintAndAccount(connection, walletKey, candyMachineMint.publicKey, setup);
+  const claimPrefix = Buffer.from("ClaimCount");
+  const setup = new TransactionInstruction({
+      programId: GUMDROP_DISTRIBUTOR_ID,
+      keys: [
+          { pubkey: distributorKey            , isSigner: false , isWritable: true  } ,
+          { pubkey: claimCount                , isSigner: false , isWritable: true  } ,
+          { pubkey: temporalSigner            , isSigner: true  , isWritable: false } ,
+          { pubkey: walletKey                 , isSigner: true  , isWritable: false } ,
+          { pubkey: SystemProgram.programId   , isSigner: false , isWritable: false } ,
+      ],
+      data: Buffer.from([
+        ...Buffer.from(sha256.digest("global:prove_claim")).slice(0, 8),
+        ...new BN(claimPrefix.length).toArray('le', 4),
+        ...claimPrefix,
+        ...new BN(cbump).toArray("le", 1),
+        ...new BN(index).toArray("le", 8),
+        ...new BN(amount).toArray("le", 8),
+        ...secret.toBuffer(),
+        ...configKey.toBuffer(), // probably should be candy machine...
+        ...new BN(0).toArray("le", 4),
+        ...new BN(proof.length).toArray("le", 4),
+        ...Buffer.concat(proof),
+      ])
+  });
+
+  // candy machine mints fit in a single transaction
+  const claim: Array<TransactionInstruction> = [];
+  await createMintAndAccount(connection, walletKey, candyMachineMint.publicKey, claim);
   // TODO: anchorProgram
-  const claim = new TransactionInstruction({
+  claim.push(new TransactionInstruction({
       programId: GUMDROP_DISTRIBUTOR_ID,
       keys: [
           { pubkey: distributorKey            , isSigner: false , isWritable: true  } ,
           { pubkey: distributorWalletKey      , isSigner: false , isWritable: true  } ,
           { pubkey: claimCount                , isSigner: false , isWritable: true  } ,
-          { pubkey: temporalSigner            , isSigner: true  , isWritable: false } ,
-          { pubkey: walletKey                 , isSigner: true  , isWritable: false } , // payer
+          { pubkey: walletKey                 , isSigner: true  , isWritable: false } ,
 
           { pubkey: configKey                 , isSigner: false , isWritable: true  } ,
           { pubkey: candyMachineKey           , isSigner: false , isWritable: true  } ,
@@ -397,12 +384,14 @@ const buildSingleCandyMint = async (
           ...extraKeys,
       ],
       data: Buffer.from([
-        ...Buffer.from(sha256.digest("global:claim_candy")).slice(0, 8),
-        ...data,
+        ...Buffer.from(sha256.digest("global:claim_candy_proven")).slice(0, 8),
+        ...new BN(wbump).toArray("le", 1),
+        ...new BN(cbump).toArray("le", 1),
+        ...new BN(index).toArray("le", 8),
       ])
-  });
+  }));
 
-  return [{ setup, claim: [claim] }, candyMachineMint];
+  return [{ setup: [setup], claim }, pdaSeeds, [candyMachineMint]];
 }
 
 const createMintAndAccount = async (
