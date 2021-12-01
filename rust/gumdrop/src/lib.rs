@@ -14,6 +14,9 @@ pub mod merkle_proof;
 
 declare_id!("gdrpGjVffourzkdDRrQmySw4aTHr8a3xmQzzxSwFD1a");
 
+const CLAIM_COUNT : &[u8] = b"ClaimCount";
+const CLAIM_STATUS : &[u8] = b"ClaimStatus";
+
 fn verify_temporal<'a>(
     distributor     : &Account<'a, MerkleDistributor>,
     temporal        : &Signer<'a>,
@@ -50,7 +53,7 @@ fn get_or_create_claim_count<'a>(
     if create_claim_state {
         let lamports = rent.minimum_balance(space);
         let claim_count_seeds = [
-            b"ClaimCount".as_ref(),
+            CLAIM_COUNT.as_ref(),
             &index.to_le_bytes(),
             &distributor.key().to_bytes(),
             &[_claim_bump],
@@ -227,6 +230,65 @@ pub mod merkle_distributor {
             ],
             &[&wallet_seeds],
         )?;
+
+        Ok(())
+    }
+
+    pub fn prove_claim<'info>(
+        ctx: Context<ProveClaim>,
+        claim_prefix: Vec<u8>,
+        _claim_bump: u8,
+        index: u64,
+        amount: u64,
+        claimant_secret: Pubkey,
+        resource: Pubkey,
+        resource_nonce: Vec<u8>,
+        proof: Vec<[u8; 32]>,
+    ) -> ProgramResult {
+        // The logic here is that we will allow the proof to be whichever prefix matches the claim
+        // type. The ClaimProof will live at the same place as V1 ClaimCount and V1 ClaimStatus so
+        // that users can't claim with both endpoints but also maintain some backwards
+        // compatibility. The account is created wherever this prefix points to and since the
+        // resource is unique per gumdrop, if this is messed up, they shouldn't be able to claim
+        // extra resources.
+        require!(
+            claim_prefix.as_slice() == CLAIM_COUNT
+            || claim_prefix.as_slice() == CLAIM_STATUS,
+            ErrorCode::InvalidProof,
+        );
+
+        let claim_proof = &mut ctx.accounts.claim_proof;
+        let distributor = &ctx.accounts.distributor;
+
+        // Verify the merkle proof.
+        let node = if resource_nonce.is_empty() {
+            solana_program::keccak::hashv(&[
+                &[0x00],
+                &index.to_le_bytes(),
+                &claimant_secret.to_bytes(),
+                &resource.to_bytes(),
+                &amount.to_le_bytes(),
+            ])
+        } else {
+            solana_program::keccak::hashv(&[
+                &[0x00],
+                &index.to_le_bytes(),
+                &claimant_secret.to_bytes(),
+                &resource.to_bytes(),
+                &amount.to_le_bytes(),
+                resource_nonce.as_slice(),
+            ])
+        };
+        require!(
+            merkle_proof::verify(proof, distributor.root, node.0),
+            ErrorCode::InvalidProof,
+        );
+
+        verify_temporal(distributor, &ctx.accounts.temporal, claimant_secret)?;
+
+        claim_proof.amount = amount;
+        claim_proof.count = 0;
+        claim_proof.claimant = ctx.accounts.payer.key();
 
         Ok(())
     }
@@ -485,6 +547,60 @@ pub mod merkle_distributor {
 
         Ok(())
     }
+
+
+    pub fn claim_candy_proven<'info>(
+        ctx: Context<'_, '_, '_, 'info, ClaimCandyProven<'info>>,
+        wallet_bump: u8,
+        _claim_bump: u8,
+        _index: u64,
+    ) -> ProgramResult {
+        let claim_proof = &mut ctx.accounts.claim_proof;
+        let distributor = &ctx.accounts.distributor;
+
+        require!(
+            claim_proof.claimant == ctx.accounts.payer.key(),
+            ErrorCode::InvalidProof,
+        );
+
+        require!(
+            claim_proof.resource == *ctx.accounts.candy_machine_config.key,
+            ErrorCode::InvalidProof,
+        );
+
+        // At least 1 remaining
+        require!(
+            claim_proof.count < claim_proof.amount,
+            ErrorCode::DropAlreadyClaimed,
+        );
+
+        // Mark it claimed
+        claim_proof.count = claim_proof.count
+            .checked_add(1)
+            .ok_or(ErrorCode::NumericalOverflow)?;
+
+        issue_mint_nft(
+            &distributor,
+            &ctx.accounts.distributor_wallet,
+            &ctx.accounts.payer,
+            &ctx.accounts.candy_machine_config,
+            &ctx.accounts.candy_machine,
+            &ctx.accounts.candy_machine_wallet,
+            &ctx.accounts.candy_machine_mint,
+            &ctx.accounts.candy_machine_metadata,
+            &ctx.accounts.candy_machine_master_edition,
+            &ctx.accounts.system_program,
+            &ctx.accounts.token_program,
+            &ctx.accounts.token_metadata_program,
+            &ctx.accounts.candy_machine_program,
+            &ctx.accounts.rent,
+            &ctx.accounts.clock,
+            &ctx.remaining_accounts,
+            wallet_bump,
+        )?;
+
+        Ok(())
+    }
 }
 
 fn issue_mint_nft<'info>(
@@ -682,6 +798,37 @@ pub struct CloseDistributor<'info> {
   pub token_program: Program<'info, Token>,
 }
 
+/// [merkle_distributor::prove_claim] accounts.
+#[derive(Accounts)]
+#[instruction(claim_prefix: Vec<u8>, claim_bump: u8, index: u64)]
+pub struct ProveClaim<'info> {
+    /// The [MerkleDistributor].
+    #[account(mut)]
+    pub distributor: Account<'info, MerkleDistributor>,
+
+    /// Status of the claim.
+    #[account(
+        init,
+        seeds = [
+            claim_prefix.as_slice(),
+            index.to_le_bytes().as_ref(),
+            distributor.key().to_bytes().as_ref()
+        ],
+        bump = claim_bump,
+        payer = payer
+    )]
+    pub claim_proof: Account<'info, ClaimProof>,
+
+    /// Extra signer expected for claims
+    pub temporal: Signer<'info>,
+
+    /// Payer of the claim.
+    pub payer: Signer<'info>,
+
+    /// The [System] program.
+    pub system_program: Program<'info, System>,
+}
+
 /// [merkle_distributor::claim] accounts.
 #[derive(Accounts)]
 #[instruction(_bump: u8, index: u64)]
@@ -694,7 +841,7 @@ pub struct Claim<'info> {
     #[account(
         init,
         seeds = [
-            b"ClaimStatus".as_ref(),
+            CLAIM_STATUS.as_ref(),
             index.to_le_bytes().as_ref(),
             distributor.key().to_bytes().as_ref()
         ],
@@ -746,7 +893,7 @@ pub struct ClaimCandy<'info> {
     /// Status of the claim. Created on first invocation of this function
     #[account(
         seeds = [
-            b"ClaimCount".as_ref(),
+            CLAIM_COUNT.as_ref(),
             index.to_le_bytes().as_ref(),
             distributor.key().to_bytes().as_ref()
         ],
@@ -823,7 +970,7 @@ pub struct ClaimEdition<'info> {
     /// Status of the claim. Created on first invocation of this function
     #[account(
         seeds = [
-            b"ClaimCount".as_ref(),
+            CLAIM_COUNT.as_ref(),
             index.to_le_bytes().as_ref(),
             distributor.key().to_bytes().as_ref()
         ],
@@ -891,6 +1038,83 @@ pub struct ClaimEdition<'info> {
     rent: Sysvar<'info, Rent>,
 }
 
+/// [merkle_distributor::claim_candy_proven] accounts.
+#[derive(Accounts)]
+#[instruction(wallet_bump: u8, claim_bump: u8, index: u64)]
+pub struct ClaimCandyProven<'info> {
+    /// The [MerkleDistributor].
+    #[account(mut)]
+    pub distributor: Account<'info, MerkleDistributor>,
+
+    /// The [MerkleDistributor] wallet
+    #[account(
+        seeds = [
+            b"Wallet".as_ref(),
+            distributor.key().to_bytes().as_ref()
+        ],
+        bump = wallet_bump,
+        mut
+    )]
+    pub distributor_wallet: AccountInfo<'info>,
+
+    /// Status of the claim. Created with prove_claim
+    #[account(
+        seeds = [
+            CLAIM_COUNT.as_ref(),
+            index.to_le_bytes().as_ref(),
+            distributor.key().to_bytes().as_ref()
+        ],
+        bump = claim_bump,
+        mut,
+    )]
+    pub claim_proof: Account<'info, ClaimProof>,
+
+    /// Payer of the claim. Should be `mint_authority` for `candy_machine_mint` and will be
+    /// `update_authority` for `candy_machine_metadata`
+    pub payer: Signer<'info>,
+
+
+    /// Candy-machine Config
+    pub candy_machine_config: AccountInfo<'info>,
+
+    /// Candy-Machine. Verified through CPI
+    #[account(mut)]
+    pub candy_machine: AccountInfo<'info>,
+
+    /// Candy-Machine-Wallet. Verified through CPI
+    #[account(mut)]
+    pub candy_machine_wallet: AccountInfo<'info>,
+
+    /// Generated mint
+    #[account(mut)]
+    pub candy_machine_mint: AccountInfo<'info>,
+
+    /// PDA of `candy_machine_mint`
+    #[account(mut)]
+    pub candy_machine_metadata: AccountInfo<'info>,
+
+    /// PDA of `candy_machine_mint`
+    #[account(mut)]
+    pub candy_machine_master_edition: AccountInfo<'info>,
+
+    /// The [System] program.
+    pub system_program: Program<'info, System>,
+
+    /// SPL [Token] program.
+    pub token_program: Program<'info, Token>,
+
+    /// SPL [TokenMetadata] program.
+    // #[account(address = metaplex_token_metadata::id())]
+    pub token_metadata_program: AccountInfo<'info>,
+
+    /// SPL [CandyMachine] program.
+    // TODO: specific address?
+    pub candy_machine_program: AccountInfo<'info>,
+
+    rent: Sysvar<'info, Rent>,
+    clock: Sysvar<'info, Clock>,
+}
+
 /// State for the account which distributes tokens.
 #[account]
 #[derive(Default)]
@@ -927,6 +1151,22 @@ pub struct ClaimCount {
     pub count: u64,
     /// Authority that claimed the tokens.
     pub claimant: Pubkey,
+}
+
+/// Allows for proof and candy minting in separate transactions to avoid transaction-size limit.
+///
+/// Used for all resources (tokens, candy claims, and edition mints)
+#[account]
+#[derive(Default)]
+pub struct ClaimProof {
+    /// Total number of NFTs that can be claimed
+    pub amount: u64,
+    /// Number of NFTs claimed. Compared versus `amount` in merkle tree data / proof
+    pub count: u64,
+    /// Authority that claimed the tokens.
+    pub claimant: Pubkey,
+    /// Resource allocated for this gumdrop. There should only be 1 per gumdrop
+    pub resource: Pubkey,
 }
 
 /// Emitted when tokens are claimed.
