@@ -97,9 +97,9 @@ fn get_or_create_claim_count<'a>(
     Ok(pa)
 }
 
-/// The [merkle_distributor] program.
+/// The [gumdrop] program.
 #[program]
-pub mod merkle_distributor {
+pub mod gumdrop {
     use super::*;
 
     /// Creates a new [MerkleDistributor].
@@ -289,6 +289,8 @@ pub mod merkle_distributor {
         claim_proof.amount = amount;
         claim_proof.count = 0;
         claim_proof.claimant = ctx.accounts.payer.key();
+        claim_proof.resource = resource;
+        claim_proof.resource_nonce = resource_nonce;
 
         Ok(())
     }
@@ -697,7 +699,7 @@ fn issue_mint_nft<'info>(
     Ok(())
 }
 
-/// Accounts for [merkle_distributor::new_distributor].
+/// Accounts for [gumdrop::new_distributor].
 #[derive(Accounts)]
 #[instruction(bump: u8)]
 pub struct NewDistributor<'info> {
@@ -723,7 +725,7 @@ pub struct NewDistributor<'info> {
     pub system_program: Program<'info, System>,
 }
 
-/// [merkle_distributor::close_distributor_token_acconut] accounts.
+/// [gumdrop::close_distributor_token_acconut] accounts.
 #[derive(Accounts)]
 #[instruction(_bump: u8)]
 pub struct CloseDistributorTokenAccount<'info> {
@@ -759,7 +761,7 @@ pub struct CloseDistributorTokenAccount<'info> {
   pub token_program: Program<'info, Token>,
 }
 
-/// [merkle_distributor::close_distributor] accounts.
+/// [gumdrop::close_distributor] accounts.
 #[derive(Accounts)]
 #[instruction(_bump: u8, _wallet_bump: u8)]
 pub struct CloseDistributor<'info> {
@@ -798,9 +800,17 @@ pub struct CloseDistributor<'info> {
   pub token_program: Program<'info, Token>,
 }
 
-/// [merkle_distributor::prove_claim] accounts.
+/// [gumdrop::prove_claim] accounts.
 #[derive(Accounts)]
-#[instruction(claim_prefix: Vec<u8>, claim_bump: u8, index: u64)]
+#[instruction(
+    claim_prefix: Vec<u8>,
+    claim_bump: u8,
+    index: u64,
+    _amount: u64,
+    _claimant_secret: Pubkey,
+    _resource: Pubkey,
+    resource_nonce: Vec<u8>,
+)]
 pub struct ProveClaim<'info> {
     /// The [MerkleDistributor].
     #[account(mut)]
@@ -815,7 +825,13 @@ pub struct ProveClaim<'info> {
             distributor.key().to_bytes().as_ref()
         ],
         bump = claim_bump,
-        payer = payer
+        payer = payer,
+        space = 8 // discriminator
+            + 8   // amount
+            + 8   // count
+            + 32  // claimant
+            + 32  // resource
+            + 4 + resource_nonce.len() // resource_nonce vec
     )]
     pub claim_proof: Account<'info, ClaimProof>,
 
@@ -829,7 +845,7 @@ pub struct ProveClaim<'info> {
     pub system_program: Program<'info, System>,
 }
 
-/// [merkle_distributor::claim] accounts.
+/// [gumdrop::claim] accounts.
 #[derive(Accounts)]
 #[instruction(_bump: u8, index: u64)]
 pub struct Claim<'info> {
@@ -871,7 +887,7 @@ pub struct Claim<'info> {
     pub token_program: Program<'info, Token>,
 }
 
-/// [merkle_distributor::claim_candy] accounts.
+/// [gumdrop::claim_candy] accounts.
 #[derive(Accounts)]
 #[instruction(_wallet_bump: u8, _claim_bump: u8,index: u64)]
 pub struct ClaimCandy<'info> {
@@ -952,7 +968,7 @@ pub struct ClaimCandy<'info> {
     clock: Sysvar<'info, Clock>,
 }
 
-/// [merkle_distributor::claim_edition] accounts. Wrapper around
+/// [gumdrop::claim_edition] accounts. Wrapper around
 /// MintNewEditionFromMasterEditionViaToken
 #[derive(Accounts)]
 #[instruction(_claim_bump: u8,index: u64)]
@@ -1038,7 +1054,7 @@ pub struct ClaimEdition<'info> {
     rent: Sysvar<'info, Rent>,
 }
 
-/// [merkle_distributor::claim_candy_proven] accounts.
+/// [gumdrop::claim_candy_proven] accounts.
 #[derive(Accounts)]
 #[instruction(wallet_bump: u8, claim_bump: u8, index: u64)]
 pub struct ClaimCandyProven<'info> {
@@ -1167,6 +1183,7 @@ pub struct ClaimProof {
     pub claimant: Pubkey,
     /// Resource allocated for this gumdrop. There should only be 1 per gumdrop
     pub resource: Pubkey,
+    pub resource_nonce: Vec<u8>,
 }
 
 /// Emitted when tokens are claimed.

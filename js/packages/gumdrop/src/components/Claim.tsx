@@ -290,7 +290,7 @@ const buildCandyClaim = async (
   } else {
     // TODO: subtract already minted?...
     const claimAccountInfo = coder.accounts.decode(
-      "ClaimCount", claimCountAccount.data);
+      "ClaimProof", claimCountAccount.data);
     nftsAlreadyMinted = claimAccountInfo.count;
     if (claimAccountInfo.claimant.equals(walletKey)) {
       // we already proved this claim and verified the OTP once, contract knows
@@ -780,7 +780,14 @@ export const Claim = (
           if (key.isSigner)
             signers.add(key.pubkey);
       }
-      return signers;
+      return [...signers];
+    };
+
+    const partialSignExtra = (tx : Transaction, expected: Array<PublicKey>) => {
+      const matching = extraSigners.filter(kp => expected.find(p => p.equals(kp.publicKey)));
+      if (matching.length > 0) {
+        tx.partialSign(...matching);
+      }
     };
 
     const recentBlockhash = (await connection.getRecentBlockhash("singleGossip")).blockhash;
@@ -793,13 +800,10 @@ export const Claim = (
 
       const setupInstrs = instructions.setup;
       const setupSigners = signersOf(setupInstrs);
-      console.log(`Expecting the following setup signers: ${[...setupSigners].map(s => s.toBase58())}`);
+      console.log(`Expecting the following setup signers: ${setupSigners.map(s => s.toBase58())}`);
       setupTx.add(...setupInstrs);
       setupTx.setSigners(...setupSigners);
-
-      if (extraSigners.length > 0) {
-        setupTx.partialSign(...extraSigners);
-      }
+      partialSignExtra(setupTx, setupSigners);
     }
 
     const claimTx = new Transaction({
@@ -809,9 +813,10 @@ export const Claim = (
 
     const claimInstrs = instructions.claim;
     const claimSigners = signersOf(claimInstrs);
-    console.log(`Expecting the following claim signers: ${[...claimSigners].map(s => s.toBase58())}`);
+    console.log(`Expecting the following claim signers: ${claimSigners.map(s => s.toBase58())}`);
     claimTx.add(...claimInstrs);
     claimTx.setSigners(...claimSigners);
+    partialSignExtra(claimTx, claimSigners);
 
     const txnNeedsTemporalSigner =
         claimTx.signatures.some(s => s.publicKey.equals(GUMDROP_TEMPORAL_SIGNER));
