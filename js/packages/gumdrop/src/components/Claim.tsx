@@ -108,6 +108,10 @@ const walletKeyOrPda = async (
   }
 }
 
+type ClaimInstructions = {
+  setup: Array<TransactionInstruction> | null,
+  claim: Array<TransactionInstruction>,
+};
 
 const buildMintClaim = async (
   connection : RPCConnection,
@@ -120,7 +124,7 @@ const buildMintClaim = async (
   amount : number,
   index : number,
   pin : BN | null,
-) : Promise<[Array<TransactionInstruction>, Array<Buffer>, Array<Keypair>]> => {
+) : Promise<[ClaimInstructions, Array<Buffer>, Array<Keypair>]> => {
   let tokenAccKey: PublicKey;
   try {
     tokenAccKey = new PublicKey(tokenAcc);
@@ -213,7 +217,7 @@ const buildMintClaim = async (
       ])
   })
 
-  return [[...setup, claimAirdrop], pdaSeeds, []];
+  return [ { setup, claim: [claimAirdrop] }, pdaSeeds, []];
 }
 
 const buildCandyClaim = async (
@@ -228,7 +232,7 @@ const buildCandyClaim = async (
   amount : number,
   index : number,
   pin : BN | null,
-) : Promise<[Array<TransactionInstruction>, Array<Buffer>, Array<Keypair>]> => {
+) : Promise<[ClaimInstructions, Array<Buffer>, Array<Keypair>]> => {
 
   let configKey : PublicKey;
   try {
@@ -278,8 +282,6 @@ const buildCandyClaim = async (
   // TODO: more flexible
   let temporalSigner = distributorInfo.temporal.equals(PublicKey.default) || secret.equals(walletKey)
       ? walletKey : distributorInfo.temporal;
-
-  const setup : Array<TransactionInstruction> = [];
 
   const claimCountAccount = await connection.getAccountInfo(claimCount);
   let nftsAlreadyMinted = 0;
@@ -335,9 +337,8 @@ const buildCandyClaim = async (
     ]),
   );
   candyMachineMints.push(mint);
-  setup.push(...instrs);
 
-  return [setup, pdaSeeds, candyMachineMints];
+  return [instrs, pdaSeeds, candyMachineMints];
 }
 
 const buildSingleCandyMint = async (
@@ -351,7 +352,7 @@ const buildSingleCandyMint = async (
   candyMachineKey : PublicKey,
   candyMachine : any,
   data : Buffer,
-) : Promise<[Array<TransactionInstruction>, Keypair]> => {
+) : Promise<[ClaimInstructions, Keypair]> => {
   const candyMachineMint = Keypair.generate();
   const candyMachineMetadata = await getMetadata(candyMachineMint.publicKey);
   const candyMachineMaster = await getEdition(candyMachineMint.publicKey);
@@ -371,7 +372,7 @@ const buildSingleCandyMint = async (
   const setup : Array<TransactionInstruction> = [];
   await createMintAndAccount(connection, walletKey, candyMachineMint.publicKey, setup);
   // TODO: anchorProgram
-  setup.push(new TransactionInstruction({
+  const claim = new TransactionInstruction({
       programId: GUMDROP_DISTRIBUTOR_ID,
       keys: [
           { pubkey: distributorKey            , isSigner: false , isWritable: true  } ,
@@ -399,9 +400,9 @@ const buildSingleCandyMint = async (
         ...Buffer.from(sha256.digest("global:claim_candy")).slice(0, 8),
         ...data,
       ])
-  }));
+  });
 
-  return [setup, candyMachineMint];
+  return [{ setup, claim: [claim] }, candyMachineMint];
 }
 
 const createMintAndAccount = async (
@@ -470,7 +471,7 @@ const buildEditionClaim = async (
   amount : number,
   index : number,
   pin : BN | null,
-) : Promise<[Array<TransactionInstruction>, Array<Buffer>, Array<Keypair>]> => {
+) : Promise<[ClaimInstructions, Array<Buffer>, Array<Keypair>]> => {
 
   let masterMintKey : PublicKey;
   try {
@@ -540,7 +541,7 @@ const buildEditionClaim = async (
 
   const editionMarkKey = await getEditionMarkerPda(masterMintKey, new BN(edition));
 
-  setup.push(new TransactionInstruction({
+  const claim = new TransactionInstruction({
       programId: GUMDROP_DISTRIBUTOR_ID,
       keys: [
           { pubkey: distributorKey            , isSigner: false , isWritable: true  } ,
@@ -574,9 +575,9 @@ const buildEditionClaim = async (
         ...new BN(proof.length).toArray("le", 4),
         ...Buffer.concat(proof),
       ])
-  }));
+  });
 
-  return [setup, pdaSeeds, [newMint]];
+  return [{ setup, claim: [claim] }, pdaSeeds, [newMint]];
 }
 
 const fetchDistributor = async (
@@ -795,13 +796,13 @@ export const Claim = (
 
     const recentBlockhash = (await connection.getRecentBlockhash("singleGossip")).blockhash;
     let setupTx : Transaction | null = null;
-    if (instructions.length > 1) {
+    if (instructions.setup !== null) {
       setupTx = new Transaction({
         feePayer: wallet.publicKey,
         recentBlockhash,
       });
 
-      const setupInstrs = instructions.slice(0, -1);
+      const setupInstrs = instructions.setup;
       const setupSigners = signersOf(setupInstrs);
       console.log(`Expecting the following setup signers: ${[...setupSigners].map(s => s.toBase58())}`);
       setupTx.add(...setupInstrs);
@@ -817,7 +818,7 @@ export const Claim = (
       recentBlockhash,
     });
 
-    const claimInstrs = instructions.slice(-1);
+    const claimInstrs = instructions.claim;
     const claimSigners = signersOf(claimInstrs);
     console.log(`Expecting the following claim signers: ${[...claimSigners].map(s => s.toBase58())}`);
     claimTx.add(...claimInstrs);
