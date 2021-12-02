@@ -19,7 +19,7 @@ import {
 } from "@mui/material";
 
 import {
-  useWallet,
+  useAnchorWallet,
 } from "@solana/wallet-adapter-react";
 import {
   AccountMeta,
@@ -610,35 +610,18 @@ export const Claim = (
   props : RouteComponentProps<ClaimProps>,
 ) => {
   const connection = useConnection();
-  const wallet = useWallet();
-
-  const anchorWallet = React.useMemo(() => {
-    if (
-      !wallet ||
-      !wallet.publicKey ||
-      !wallet.signAllTransactions ||
-      !wallet.signTransaction
-    ) {
-      return;
-    }
-
-    return {
-      publicKey: wallet.publicKey,
-      signAllTransactions: wallet.signAllTransactions,
-      signTransaction: wallet.signTransaction,
-    } as anchor.Wallet;
-  }, [wallet]);
+  const wallet = useAnchorWallet();
 
   const [program, setProgram] = React.useState<anchor.Program | null>(null);
 
   React.useEffect(() => {
-    if (!anchorWallet) {
+    if (!wallet) {
       return;
     }
 
     const wrap = async () => {
       try {
-        const provider = new anchor.Provider(connection, anchorWallet, {
+        const provider = new anchor.Provider(connection, wallet, {
           preflightCommitment: 'recent',
         });
         const idl = await anchor.Program.fetchIdl(GUMDROP_DISTRIBUTOR_ID, provider);
@@ -650,7 +633,7 @@ export const Claim = (
       }
     };
     wrap();
-  }, [anchorWallet]);
+  }, [wallet]);
 
   let query = props.location.search;
   if (query && query.length > 0) {
@@ -722,7 +705,7 @@ export const Claim = (
   const sendOTP = async (e : React.SyntheticEvent) => {
     e.preventDefault();
 
-    if (!anchorWallet || !program) {
+    if (!wallet || !program) {
       throw new Error(`Wallet not connected`);
     }
 
@@ -761,13 +744,13 @@ export const Claim = (
     if (claimMethod === "candy") {
       console.log("Building candy claim");
       [instructions, pdaSeeds, extraSigners] = await buildCandyClaim(
-        program, anchorWallet.publicKey, distributorKey, distributorInfo,
+        program, wallet.publicKey, distributorKey, distributorInfo,
         candyConfig, candyUUID,
         proof, handle, amount, index, pin
       );
     } else if (claimMethod === "transfer") {
       [instructions, pdaSeeds, extraSigners] = await buildMintClaim(
-        program, anchorWallet.publicKey, distributorKey, distributorInfo,
+        program, wallet.publicKey, distributorKey, distributorInfo,
         tokenAcc,
         proof, handle, amount, index, pin
       );
@@ -777,7 +760,7 @@ export const Claim = (
         throw new Error(`Could not parse edition ${editionStr}`);
       }
       [instructions, pdaSeeds, extraSigners] = await buildEditionClaim(
-        program, anchorWallet.publicKey, distributorKey, distributorInfo,
+        program, wallet.publicKey, distributorKey, distributorInfo,
         masterMint, edition,
         proof, handle, amount, index, pin
       );
@@ -812,7 +795,7 @@ export const Claim = (
     let setupTx : Transaction | null = null;
     if (instructions.setup !== null && instructions.setup.length !== 0) {
       setupTx = new Transaction({
-        feePayer: anchorWallet.publicKey,
+        feePayer: wallet.publicKey,
         recentBlockhash,
       });
 
@@ -825,7 +808,7 @@ export const Claim = (
     }
 
     const claimTx = new Transaction({
-      feePayer: anchorWallet.publicKey,
+      feePayer: wallet.publicKey,
       recentBlockhash,
     });
 
@@ -912,7 +895,7 @@ export const Claim = (
       throw new Error(`Transaction not available for OTP verification`);
     }
 
-    if (!anchorWallet || !program) {
+    if (!wallet|| !program) {
       throw new Error(`Wallet not connected`);
     }
 
@@ -966,7 +949,7 @@ export const Claim = (
 
     let fullySigned;
     try {
-      fullySigned = await anchorWallet.signAllTransactions(
+      fullySigned = await wallet.signAllTransactions(
         transaction.setup === null
         ? [transaction.claim]
         : [transaction.setup, transaction.claim]
@@ -1027,7 +1010,7 @@ export const Claim = (
 
       <Box sx={{ position: "relative" }}>
       <Button
-        disabled={!anchorWallet || !program || !OTPStr || loading}
+        disabled={!wallet|| !program || !OTPStr || loading}
         variant="contained"
         color="success"
         style={{ width: "100%" }}
@@ -1220,7 +1203,7 @@ export const Claim = (
 
       <Box sx={{ position: "relative" }}>
       <Button
-        disabled={!anchorWallet || !program || !allFieldsPopulated || loading}
+        disabled={!wallet|| !program || !allFieldsPopulated || loading}
         variant="contained"
         style={{ width: "100%" }}
         color={asyncNeedsTemporalSigner ? "primary" : "success"}
