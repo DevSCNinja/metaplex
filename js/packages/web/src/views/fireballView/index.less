@@ -61,3 +61,99 @@ p {
   flex-direction: row;
   align-items: center;
 }
+
+.modal-mint{
+  padding: 30px;
+  background: #2D1428 ;
+  border-radius: 15px;
+  width: 700px !important;
+  max-height: 700px;
+
+  .ant-modal-content {
+    background: #2D1428 ;
+  }
+
+  .ant-modal-footer {
+    background: #2D1428 ;
+  }
+
+  .ant-modal-body {
+    background: #2D1428 ;
+    max-height: 600px;
+  }
+
+  .mint-modal-btn{
+    border-radius: 30px;
+    color: black;
+    background-color: white !important;
+    min-width: 85px;
+    height: 45px;
+    margin: 0 20px 0 0;
+    padding: 0 10px;
+  }
+
+  .cancel-modal-btn {
+    border: 1px solid white;
+    border-radius: 30px;
+    margin: 0 20px 0 0;
+    padding: 0;
+    width: 85px;
+    height: 45px;
+  }
+
+  .modal-content-mint{
+    padding: 25px 0;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    height: 400px;
+
+    .nft-list {
+      height: 360px;
+      overflow-y: scroll;
+    }
+
+    ::-webkit-scrollbar {
+      width: 0;  /* Remove scrollbar space */
+      background: transparent;  /* Optional: just make scrollbar invisible */
+    }
+  }
+
+  .modal-button-container{
+    padding: 20px 0;
+  }
+}
+
+.minted-modal {
+  display: flex;
+  flex-direction: row;
+
+  .modal-image-container {
+    margin: 10px;
+  }
+
+  .modal-content-container {
+    margin: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+
+    .modal-button-container{
+      padding: 0;
+    }
+  }
+}
+
+.modal-title-mint {
+  font-family: Inter;
+  font-size: 30px;
+  font-weight: 700;
+  color: #E3E4D3;
+}
+
+.modal-subtitle-mint {
+  font-family: Inter;
+  font-size: 25px;
+  font-weight: 700;
+  color: #E3E4D3;
+}

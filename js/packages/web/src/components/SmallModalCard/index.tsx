@@ -1,25 +1,43 @@
 import React from 'react';
 import {Card} from 'antd';
 import {useArt} from "../../hooks";
-import {ArtType} from "../../types";
+import {Artist, ArtType} from "../../types";
 import {ArtCardProps} from "../ArtCard";
 import {ArtContent} from "../ArtContent";
+import {MetadataCategory, StringPublicKey} from "@oyster/common";
 
 export interface NFT {
   name: string;
   image: string;
 }
 
-
 export interface TestArtCardProps extends ArtCardProps {
-  test? : boolean
+  pubkey?: StringPublicKey;
+
+  image?: string;
+  animationURL?: string;
+
+  category?: MetadataCategory;
+
+  name?: string;
+  symbol?: string;
+  description?: string;
+  creators?: Artist[];
+  preview?: boolean;
+  small?: boolean;
+  close?: () => void;
+
+  height?: number;
+  artView?: boolean;
+  width?: number;
+
+  count?: string;
+  test?: boolean;
 }
 
-
-export const FireballCard = (props: TestArtCardProps) => {
+export const SmallModalCard = (props: TestArtCardProps) => {
   const {
     className,
-    small,
     category,
     image,
     animationURL,
@@ -35,15 +53,16 @@ export const FireballCard = (props: TestArtCardProps) => {
   const art = useArt(pubkey);
   const nameCard = art?.title || name || ' ';
 
+  console.log(props)
+
   return (
     <Card
       hoverable={true}
-      className={`fireball-card ${small ? 'small' : ''} ${className ?? ''}`}
+      className={`small-modal-card ${className ?? ''}`}
       cover={
         <div className="image-container">
           {
-            test ?
-              <img src={image} alt={name} width={width} height={height}/> :
+            test ? <img src={image} alt={name} width={width} height={height}/> :
               <ArtContent
                 pubkey={pubkey}
                 uri={image}
@@ -62,8 +81,8 @@ export const FireballCard = (props: TestArtCardProps) => {
      {...rest}
     >
       <div>
-        <p className={"card-title"}>The Collectoooooor</p>
-        <p className={"card-name"}>{ nameCard }</p>
+        <p className={"text"}>The Collectoooooor</p>
+        <p className={"name"}>{ nameCard }</p>
       </div>
     </Card>
   );

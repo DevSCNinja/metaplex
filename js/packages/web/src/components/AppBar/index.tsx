@@ -15,17 +15,7 @@ import {
 import { ConnectButton } from '@oyster/common';
 
 const getDefaultLinkActions = (connected: boolean) => {
-  return [
-    <HashQueryLink to={`/`} key={'explore'}>
-      <Button className="app-btn">Explore</Button>
-    </HashQueryLink>,
-    <HashQueryLink to={`/artworks`} key={'artwork'}>
-      <Button className="app-btn">{connected ? 'My Items' : 'Artwork'}</Button>
-    </HashQueryLink>,
-    <HashQueryLink to={`/artists`} key={'artists'}>
-      <Button className="app-btn">Creators</Button>
-    </HashQueryLink>,
-  ];
+  return [];
 };
 
 const DefaultActions = ({ vertical = false }: { vertical?: boolean }) => {
@@ -110,7 +100,7 @@ const MetaplexMenu = () => {
 export const LogoLink = () => {
   return (
     <Link to={`/`}>
-      <img src={'/metaplex-logo.svg'} />
+      <p className={"colectoooooor-logo"}>COLLECTOOOOOR</p>
     </Link>
   );
 };
