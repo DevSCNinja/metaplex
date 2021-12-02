@@ -1,4 +1,4 @@
-import { dataSmall, mockPreview } from '../views/fireballView/data';
+import { dataSmall, dummyData, mockPreview } from '../views/fireballView/data';
 
 export const useSmallData = () => {
   return dataSmall;
@@ -6,4 +6,8 @@ export const useSmallData = () => {
 
 export const usePreviewData = () => {
   return mockPreview;
+};
+
+export const useDummyData = () => {
+  return dummyData;
 };

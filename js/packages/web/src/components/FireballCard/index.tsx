@@ -1,9 +1,9 @@
 import React from 'react';
 import {Card} from 'antd';
 import {useArt} from "../../hooks";
-import {ArtType} from "../../types";
 import {ArtCardProps} from "../ArtCard";
 import {ArtContent} from "../ArtContent";
+
 
 export interface NFT {
   name: string;
@@ -43,7 +43,7 @@ export const FireballCard = (props: TestArtCardProps) => {
         <div className="image-container">
           {
             test ?
-              <img src={image} alt={name} width={width} height={height}/> :
+              <img style={{width: width, height: height}} src={image} alt={name}/> :
               <ArtContent
                 pubkey={pubkey}
                 uri={image}
