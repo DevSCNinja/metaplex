@@ -37,18 +37,51 @@ fn verify_temporal<'a>(
     Ok(())
 }
 
+fn verify_claim_bump<'a>(
+    claim_account   : &AccountInfo<'a>,
+    claim_prefix    : &[u8],
+    claim_bump      : u8,
+    index           : u64,
+    distributor     : &Account<'a, MerkleDistributor>,
+) -> ProgramResult {
+    require!(
+        claim_prefix == CLAIM_COUNT
+        || claim_prefix == CLAIM_STATUS,
+        ErrorCode::InvalidClaimBump,
+    );
+
+    let (claim_account_key, claim_account_bump) = Pubkey::find_program_address(
+        &[
+            claim_prefix,
+            &index.to_le_bytes(),
+            &distributor.key().to_bytes(),
+        ],
+        &ID,
+    );
+    require!(
+        claim_account_key == *claim_account.key
+        && claim_account_bump == claim_bump,
+        ErrorCode::InvalidClaimBump,
+    );
+
+    Ok(())
+}
+
 fn get_or_create_claim_count<'a>(
     distributor     : &Account<'a, MerkleDistributor>,
     claim_count     : &AccountInfo<'a>,
     temporal        : &Signer<'a>,
     payer           : &Signer<'a>,
     system_program  : &Program<'a, System>,
-    _claim_bump     : u8,
+    claim_bump      : u8,
     index           : u64,
     claimant_secret : Pubkey,
 ) -> core::result::Result<anchor_lang::Account<'a, ClaimCount>, ProgramError> {
     let rent = &Rent::get()?;
     let space = 8 + ClaimCount::default().try_to_vec().unwrap().len();
+
+    verify_claim_bump(claim_count, CLAIM_COUNT, claim_bump, index, distributor)?;
+
     let create_claim_state = claim_count.lamports() == 0; // TODO: support initial lamports?
     if create_claim_state {
         let lamports = rent.minimum_balance(space);
@@ -56,7 +89,7 @@ fn get_or_create_claim_count<'a>(
             CLAIM_COUNT.as_ref(),
             &index.to_le_bytes(),
             &distributor.key().to_bytes(),
-            &[_claim_bump],
+            &[claim_bump],
         ];
 
         invoke_signed(
@@ -237,7 +270,7 @@ pub mod gumdrop {
     pub fn prove_claim<'info>(
         ctx: Context<ProveClaim>,
         claim_prefix: Vec<u8>,
-        _claim_bump: u8,
+        claim_bump: u8,
         index: u64,
         amount: u64,
         claimant_secret: Pubkey,
@@ -259,6 +292,14 @@ pub mod gumdrop {
 
         let claim_proof = &mut ctx.accounts.claim_proof;
         let distributor = &ctx.accounts.distributor;
+
+        verify_claim_bump(
+            &claim_proof.to_account_info(),
+            claim_prefix.as_slice(),
+            claim_bump,
+            index,
+            distributor,
+        )?;
 
         // Verify the merkle proof.
         let node = if resource_nonce.is_empty() {
@@ -298,7 +339,7 @@ pub mod gumdrop {
     /// Claims tokens from the [MerkleDistributor].
     pub fn claim(
         ctx: Context<Claim>,
-        _bump: u8,
+        claim_bump: u8,
         index: u64,
         amount: u64,
         claimant_secret: Pubkey,
@@ -317,6 +358,14 @@ pub mod gumdrop {
 
         let distributor = &ctx.accounts.distributor;
         let mint = ctx.accounts.from.mint;
+
+        verify_claim_bump(
+            &claim_status.to_account_info(),
+            CLAIM_STATUS,
+            claim_bump,
+            index,
+            distributor,
+        )?;
 
         // Verify the merkle proof.
         let node = solana_program::keccak::hashv(&[
@@ -554,7 +603,7 @@ pub mod gumdrop {
     pub fn claim_candy_proven<'info>(
         ctx: Context<'_, '_, '_, 'info, ClaimCandyProven<'info>>,
         wallet_bump: u8,
-        _claim_bump: u8,
+        _claim_bump: u8,   // proof is not created
         _index: u64,
     ) -> ProgramResult {
         let claim_proof = &mut ctx.accounts.claim_proof;
@@ -847,7 +896,7 @@ pub struct ProveClaim<'info> {
 
 /// [gumdrop::claim] accounts.
 #[derive(Accounts)]
-#[instruction(_bump: u8, index: u64)]
+#[instruction(claim_bump: u8, index: u64)]
 pub struct Claim<'info> {
     /// The [MerkleDistributor].
     #[account(mut)]
@@ -861,7 +910,7 @@ pub struct Claim<'info> {
             index.to_le_bytes().as_ref(),
             distributor.key().to_bytes().as_ref()
         ],
-        bump = _bump,
+        bump = claim_bump,
         payer = payer
     )]
     pub claim_status: Account<'info, ClaimStatus>,
@@ -889,7 +938,7 @@ pub struct Claim<'info> {
 
 /// [gumdrop::claim_candy] accounts.
 #[derive(Accounts)]
-#[instruction(_wallet_bump: u8, _claim_bump: u8,index: u64)]
+#[instruction(_wallet_bump: u8, claim_bump: u8,index: u64)]
 pub struct ClaimCandy<'info> {
     /// The [MerkleDistributor].
     #[account(mut)]
@@ -913,7 +962,7 @@ pub struct ClaimCandy<'info> {
             index.to_le_bytes().as_ref(),
             distributor.key().to_bytes().as_ref()
         ],
-        bump = _claim_bump,
+        bump = claim_bump,
         mut,
     )]
     // #[account(mut)]
@@ -971,7 +1020,7 @@ pub struct ClaimCandy<'info> {
 /// [gumdrop::claim_edition] accounts. Wrapper around
 /// MintNewEditionFromMasterEditionViaToken
 #[derive(Accounts)]
-#[instruction(_claim_bump: u8,index: u64)]
+#[instruction(claim_bump: u8,index: u64)]
 pub struct ClaimEdition<'info> {
     /// Given a token account containing the master edition token to prove authority, and a brand new non-metadata-ed mint with one token
     /// make a new Metadata + Edition that is a child of the master edition denoted by this authority token.
@@ -990,7 +1039,7 @@ pub struct ClaimEdition<'info> {
             index.to_le_bytes().as_ref(),
             distributor.key().to_bytes().as_ref()
         ],
-        bump = _claim_bump,
+        bump = claim_bump,
         mut,
     )]
     // #[account(mut)]
@@ -1232,4 +1281,6 @@ pub enum ErrorCode {
     TemporalMismatch,
     #[msg("Numerical Overflow")]
     NumericalOverflow,
+    #[msg("Invalid Claim Bump")]
+    InvalidClaimBump,
 }
