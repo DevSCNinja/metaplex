@@ -49,4 +49,11 @@ module.exports = withPlugins(plugins, {
       },
     ];
   },
+  webpack: (config, { isServer }) => {
+    console.log("setting resolve fs false");
+    if (!isServer) {
+      config.resolve.fallback.fs = false;
+    }
+    return config;
+  },
 });
