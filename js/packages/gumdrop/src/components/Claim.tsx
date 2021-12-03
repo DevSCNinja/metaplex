@@ -820,11 +820,13 @@ export const Claim = (
     partialSignExtra(claimTx, claimSigners);
 
     const txnNeedsTemporalSigner =
-        claimTx.signatures.some(s => s.publicKey.equals(GUMDROP_TEMPORAL_SIGNER));
-    if (txnNeedsTemporalSigner && !skipAWSWorkflow) {
+        claimTx.signatures.some(s => s.publicKey.equals(GUMDROP_TEMPORAL_SIGNER)) ? claimTx
+      : setupTx && setupTx.signatures.some(s => s.publicKey.equals(GUMDROP_TEMPORAL_SIGNER)) ? setupTx
+      : /*otherwise*/ null;
+    if (txnNeedsTemporalSigner !== null && !skipAWSWorkflow) {
       const otpQuery : { [key: string] : any } = {
         method: "send",
-        transaction: bs58.encode(claimTx.serializeMessage()),
+        transaction: bs58.encode(txnNeedsTemporalSigner.serializeMessage()),
         seeds: pdaSeeds,
         comm: commMethod,
       };
@@ -899,8 +901,12 @@ export const Claim = (
       throw new Error(`Wallet not connected`);
     }
 
+    const claimTx = transaction.claim;
+    const setupTx = transaction.setup;
     const txnNeedsTemporalSigner =
-        transaction.claim.signatures.some(s => s.publicKey.equals(GUMDROP_TEMPORAL_SIGNER));
+        claimTx.signatures.some(s => s.publicKey.equals(GUMDROP_TEMPORAL_SIGNER)) ? claimTx
+      : setupTx && setupTx.signatures.some(s => s.publicKey.equals(GUMDROP_TEMPORAL_SIGNER)) ? setupTx
+      : /*otherwise*/ null;
     if (txnNeedsTemporalSigner && !skipAWSWorkflow) {
       // TODO: distinguish between OTP failure and transaction-error. We can try
       // again on the former but not the latter
@@ -944,7 +950,7 @@ export const Claim = (
         throw new Error(`Could not decode transaction signature ${data.body}`);
       }
 
-      transaction.claim.addSignature(GUMDROP_TEMPORAL_SIGNER, sig);
+      txnNeedsTemporalSigner.addSignature(GUMDROP_TEMPORAL_SIGNER, sig);
     }
 
     let fullySigned;
