@@ -8,8 +8,10 @@ import {
   Box,
   Button,
   Card,
+  Chip,
   CircularProgress,
   Link as HyperLink,
+  IconButton,
   ImageList,
   ImageListItem,
   ImageListItemBar,
@@ -21,6 +23,9 @@ import {
   Tabs,
   TextField,
 } from "@mui/material";
+import AddIcon from '@mui/icons-material/Add';
+import CancelIcon from '@mui/icons-material/Cancel';
+import RemoveIcon from '@mui/icons-material/Remove';
 
 import {
   Connection as RPCConnection,
@@ -453,13 +458,47 @@ export const FireballView = (
 
   const recipeKey = new PublicKey("jjpuB5m3CHAx7HenRYLPbDkFMWqkz4A96SQ8jKZEH6H");
 
-  const [recipeYields, setRecipeYields] = React.useState<Array<RecipeYield>>([]);
   const [relevantMints, setRelevantMints] = React.useState<Array<RelevantMint>>([]);
   const [ingredientList, setIngredientList] = React.useState<Array<any>>([]);
   const [dishIngredients, setIngredients] = React.useState<Array<RelevantMint>>([]);
   const [changeList, setChangeList] = React.useState<Array<any>>([]);
-  const [ingredientView, setIngredientView] = React.useState(IngredientView.add);
 
+  const recipes = [ // TODO: metadata link to find editions remaining
+    {
+      image: "https://www.arweave.net/EYE3jfEKhzj6vgs1OtrNe7B99SUi6X-iN4dQoOeM3-U?ext=gif",
+      name: "city 1",
+      mint: new PublicKey("8s2RPB1vEy5yTbYa85Y8QR1ATi7PgDBpuCFVNYv4be7s"),
+    },
+    {
+      image: "https://www.arweave.net/25iaa4uK7W56ga9BXz37ZezRcCWx5BC442PBqtNyVPk?ext=gif",
+      name: "city 2",
+      mint: new PublicKey("jQ9LPzPpK1cdsC3qK8iZGWWasCALPZ6aCL5qD7GPHK7"),
+    },
+  ];
+
+  const ingredients = {
+    "airplane"           : "https://www.arweave.net/84UaRlQ7lIM6rjGodFsruqNNAoOBt6dBoJ-eHv9Fr50?ext=gif",
+    "bull"               : "https://www.arweave.net/GfSyYWWgOIY3llKsU9CiR_sUKNlIBaE1-Wnx_JgvaC4?ext=gif",
+    "duck with doughnut" : "https://www.arweave.net/4M30mRpOwq9M1DrlMAUipUAaAPsCeMLm8gTSDXo_rmI?ext=gif",
+    "hot air balloon"    : "https://www.arweave.net/_mNWVadW1eA5Be3qJlDJeY5qc5tcfL0VdwJ7mc2oxgU?ext=gif",
+    "house"              : "https://www.arweave.net/StFWkC5bN_vMuY6oluIlJbFMPsCL-6Q93aVCobrA_mM?ext=gif",
+    "normal duck"        : "https://www.arweave.net/PJySMI3c2s-DFvJ_ruRrCScsNJiUDiJsu9J6haeWaww?ext=gif",
+    "rocket"             : "https://www.arweave.net/tWQYjhOarxQbQvF9eGRUnI3S-vaWd8Qj7ag7CmiVRqk?ext=gif",
+    "sailboat"           : "https://www.arweave.net/RIkpf6zSCcFLi6KetJrnwd5feZdlVc9-5E37n58D_H4?ext=gif",
+    "telescope ape"      : "https://www.arweave.net/yxWPmiQY3OBHLn1kWhDOrvuJMNAbkglI3VzrL8xZk1Y?ext=gif",
+    "traincar"           : "https://www.arweave.net/mt_fveAydzly6mEeAUNxDuAWevIe9NPoxBuPoTCDIYY?ext=gif",
+    "ufo"                : "https://www.arweave.net/RNdstwUgOcXc7ognVkUoTjfoO2B3Kp2iZ34m86x6gzw?ext=gif",
+    "umbrella duck"      : "https://www.arweave.net/-ApXoK_X3rlclU-rijXiqU4pm85tggLej4ax3HwsI3U?ext=gif",
+    "whale"              : "https://www.arweave.net/e0VvxBG4VrAmli9v7E0d_JDxqbXohS50D7oExbtzVkg?ext=gif",
+  };
+
+  const numIngredients = Object.keys(ingredients).length;
+  const collected = Object.keys(ingredients).reduce((acc, ingredient) => {
+    return acc + !!(
+      dishIngredients.find(c => c.ingredient === ingredient)
+      || relevantMints.find(c => c.ingredient === ingredient)
+    );
+  }, 0);
 
   React.useMemo(() => {
     if (!connection || !anchorWallet || !program) return;
@@ -467,14 +506,14 @@ export const FireballView = (
     try {
       const wrap = async () => {
         try {
-          setRecipeYields(await getRecipeYields(connection, recipeKey));
-          console.log("ingredient list", ingredientList);
-        } catch (err) {
-          console.log('Fetch yield preview err', err);
-        }
-        try {
           const { ingredientList, onChainIngredients, relevantMints } =
               await fetchRelevantMints(anchorWallet, program, connection, recipeKey);
+          if (ingredientList.length !== numIngredients) {
+            notify({
+              message: `Mismatching on-chain ingredients list`,
+              description: `Expected ${numIngredients} got ${ingredientList.length}`,
+            });
+          }
           setIngredientList(ingredientList);
           setIngredients(onChainIngredients)
           setRelevantMints(relevantMints);
@@ -484,7 +523,6 @@ export const FireballView = (
       };
       wrap();
     } catch (err) {
-      setRecipeYields([]);
       console.log('Key decode err', err);
     }
   }, [anchorWallet?.publicKey, !program, !connection, recipeKey.toBase58()]);
@@ -585,7 +623,6 @@ export const FireballView = (
     e.preventDefault();
     if (!anchorWallet || !program) {
       throw new Error(`Wallet or program is not connected`);
-      return;
     }
 
     if (ingredientList.length === 0) {
@@ -724,6 +761,58 @@ export const FireballView = (
     return setup;
   };
 
+
+  const submitDishChanges = async (e : React.SyntheticEvent) => {
+    const setup = await buildDishChanges(e);
+    console.log(setup);
+    if (setup.length === 0) {
+      return;
+    }
+
+    console.log(setup);
+
+    const instrsPerTx = 2; // TODO: adjust based on proof size...
+    const chunked = chunks(setup, instrsPerTx);
+    const passed = await Connection.sendTransactions(
+      program.provider.connection,
+      anchorWallet,
+      chunked,
+      new Array<Keypair[]>(chunked.length).fill([]),
+      Connection.SequenceType.StopOnFailure,
+      'singleGossip',
+      // success callback
+      (txid: string, ind: number) => {
+        notify({
+          message: `Dish Changes succeeded: ${ind + 1} of ${chunked.length}`,
+          description: (
+            <HyperLink href={explorerLinkFor(txid, connection)}>
+              View transaction on explorer
+            </HyperLink>
+          ),
+        });
+      },
+      // failure callback
+      (reason: string, ind: number) => {
+        console.log(`Dish Changes failed on ${ind}: ${reason}`);
+        return true;
+      },
+    );
+
+    console.log(passed);
+
+    if (passed !== chunked.length) {
+      throw new Error(`One of the dish changes failed. See console logs`);
+    }
+
+    setIngredients(await getOnChainIngredients(
+          connection, recipeKey, anchorWallet.publicKey, ingredientList));
+
+    setRelevantMints(await getRelevantTokenAccounts(
+          connection, anchorWallet.publicKey, ingredientList));
+
+    setChangeList([]);
+  };
+
   const mintRecipe = async (e : React.SyntheticEvent, masterMintKey : PublicKey) => {
     // TODO: less hacky. let the link click go through
     if ((e.target as any).href !== undefined) {
@@ -734,6 +823,10 @@ export const FireballView = (
 
     if (!anchorWallet || !program) {
       throw new Error(`Wallet or program is not connected`);
+    }
+
+    if (collected !== numIngredients) {
+      throw new Error(`You have not collected all ${numIngredients} ingredients!`);
     }
 
     const [dishKey, ] = await PublicKey.findProgramAddress(
@@ -891,41 +984,6 @@ export const FireballView = (
     />
   );
 
-  const recipes = [
-    {
-      image: "https://www.arweave.net/EYE3jfEKhzj6vgs1OtrNe7B99SUi6X-iN4dQoOeM3-U?ext=gif",
-      name: "city 1",
-      mint: new PublicKey("8s2RPB1vEy5yTbYa85Y8QR1ATi7PgDBpuCFVNYv4be7s"),
-    },
-    {
-      image: "https://www.arweave.net/25iaa4uK7W56ga9BXz37ZezRcCWx5BC442PBqtNyVPk?ext=gif",
-      name: "city 2",
-      mint: new PublicKey("jQ9LPzPpK1cdsC3qK8iZGWWasCALPZ6aCL5qD7GPHK7"),
-    },
-    { // TODO
-      image: "https://www.arweave.net/RNdstwUgOcXc7ognVkUoTjfoO2B3Kp2iZ34m86x6gzw?ext=gif",
-      name: "ufo",
-      mint: new PublicKey("GHabNiugLr5o5TLTrBLiU26QVFhxoDNgooFZAsZ1yhus"),
-    }
-  ];
-
-
-  const ingredients = {
-    "airplane"           : "https://www.arweave.net/84UaRlQ7lIM6rjGodFsruqNNAoOBt6dBoJ-eHv9Fr50?ext=gif",
-    "bull"               : "https://www.arweave.net/GfSyYWWgOIY3llKsU9CiR_sUKNlIBaE1-Wnx_JgvaC4?ext=gif",
-    "duck with doughnut" : "https://www.arweave.net/4M30mRpOwq9M1DrlMAUipUAaAPsCeMLm8gTSDXo_rmI?ext=gif",
-    "hot air balloon"    : "https://www.arweave.net/_mNWVadW1eA5Be3qJlDJeY5qc5tcfL0VdwJ7mc2oxgU?ext=gif",
-    "house"              : "https://www.arweave.net/StFWkC5bN_vMuY6oluIlJbFMPsCL-6Q93aVCobrA_mM?ext=gif",
-    "normal duck"        : "https://www.arweave.net/PJySMI3c2s-DFvJ_ruRrCScsNJiUDiJsu9J6haeWaww?ext=gif",
-    "rocket"             : "https://www.arweave.net/tWQYjhOarxQbQvF9eGRUnI3S-vaWd8Qj7ag7CmiVRqk?ext=gif",
-    "sailboat"           : "https://www.arweave.net/RIkpf6zSCcFLi6KetJrnwd5feZdlVc9-5E37n58D_H4?ext=gif",
-    "telescope ape"      : "https://www.arweave.net/yxWPmiQY3OBHLn1kWhDOrvuJMNAbkglI3VzrL8xZk1Y?ext=gif",
-    "traincar"           : "https://www.arweave.net/mt_fveAydzly6mEeAUNxDuAWevIe9NPoxBuPoTCDIYY?ext=gif",
-    "ufo"                : "https://www.arweave.net/RNdstwUgOcXc7ognVkUoTjfoO2B3Kp2iZ34m86x6gzw?ext=gif",
-    "umbrella duck"      : "https://www.arweave.net/-ApXoK_X3rlclU-rijXiqU4pm85tggLej4ax3HwsI3U?ext=gif",
-    "whale"              : "https://www.arweave.net/e0VvxBG4VrAmli9v7E0d_JDxqbXohS50D7oExbtzVkg?ext=gif",
-  };
-
   const batchChangeWrapper = (
     inBatch : boolean,
     r : RelevantMint,
@@ -961,7 +1019,9 @@ export const FireballView = (
   const cols = 4;
   // TODO: width sizing
   return (
-    <Stack spacing={2}>
+    <Stack spacing={1}>
+      <p className={"text-title"}>Collectoooooor NFTs</p>
+      <p className={"text-subtitle"}>You can burn 13 NFTs to redeem an exclusive city.</p>
       <ImageList cols={cols}>
         {recipes.map((r, idx) => {
           return (
@@ -988,16 +1048,11 @@ export const FireballView = (
                 <Button
                   style={{
                     borderRadius: "30px",
-                    color: "black",
-                    backgroundColor: "white",
                     height: "45px",
                   }}
-                  disabled={!Object.keys(ingredients).reduce(
-                    (acc, ingredient) => {
-                      return acc && changeList.find(c => c.ingredient === ingredient);
-                    },
-                    true,
-                  )}
+                  variant="outlined"
+                  color="white"
+                  disabled={!anchorWallet || !program || loading}
                   onClick={e => {
                     setLoading(true);
                     const wrap = async () => {
@@ -1022,13 +1077,52 @@ export const FireballView = (
           );
         })}
       </ImageList>
+
+      <div className={"row"}>
+        <p className={"text-title"}>Your NFTs</p>
+        <div className={"unlock-nft"}>
+          <p className={"unlock-text"}>
+            {`${collected}/${Object.keys(ingredients).length} NFTs collected`}
+          </p>
+        </div>
+        <Button
+          style={{
+            borderRadius: "30px",
+            height: "45px",
+          }}
+          variant="outlined"
+          color="white"
+          disabled={!anchorWallet || !program || loading}
+          onClick={e => {
+            setLoading(true);
+            const wrap = async () => {
+              try {
+                await submitDishChanges(e);
+                setLoading(false);
+              } catch (err) {
+                console.log(err);
+                notify({
+                  message: `Dish Changes failed`,
+                  description: err.message,
+                });
+                setLoading(false);
+              }
+            };
+            wrap();
+          }}
+        >
+          Partial
+        </Button>
+      </div>
+      <p className={"text-subtitle"}>The NFTs you have collected so far.</p>
+
       <ImageList cols={cols}>
         {Object.keys(ingredients).map((ingredient, idx) => {
-          const ingredientInDish = false;
-          const ingredientInWallet = relevantMints.find(c => c.ingredient === ingredient);
+          const dishIngredient = dishIngredients.find(c => c.ingredient === ingredient);
+          const matchingIngredients = relevantMints.filter(c => c.ingredient === ingredient);
 
           let imgStyle, disabled;
-          if (ingredientInWallet) {
+          if (dishIngredient || matchingIngredients.length > 0) {
             imgStyle = {}
             disabled = false;
           } else {
@@ -1036,11 +1130,10 @@ export const FireballView = (
             disabled = true;
           }
 
-          const r = ingredientInWallet;
-          const operation = IngredientView.add;
+          const r = dishIngredient ? dishIngredient : matchingIngredients[0];
+          const operation = dishIngredient ? IngredientView.recover: IngredientView.add;
           const inBatch = changeList.find(
               c => r && c.mint.equals(r.mint) && c.operation === operation);
-          console.log(ingredient, inBatch, changeList);
           return (
             <div
               key={idx}
@@ -1054,32 +1147,50 @@ export const FireballView = (
                   style={{
                     borderRadius: "2px",
                     padding: inBatch ? 10 : 2,
-                    backgroundColor: "white",
+                    backgroundColor: dishIngredient ? "#2D1428" : "white",
                     ...imgStyle,
                   }}
                 />
                 <ImageListItemBar
-                  title={ingredient}
+                  title={(
+                    <div>
+                      {ingredient}
+                    </div>
+                  )}
                   subtitle={
                     r
-                      ? explorerLinkForAddress(r.mint)
+                      ? (
+                        <div>
+                          {explorerLinkForAddress(r.mint)}
+                          {"\u00A0"}
+                          {dishIngredient && (
+                            <Chip
+                              label="on chain"
+                              size="small"
+                              style={{
+                                background: "#4E2946",
+                                color: "white",
+                              }}
+                            />
+                          )}
+                        </div>
+                      )
                       : <p sx={{ fontFamily: 'Monospace' }}>{"\u00A0"}</p>
+                  }
+                  actionIcon={
+                    <div style={{ paddingTop: "6px", paddingBottom: "12px" }}>
+                      <IconButton
+                        color="white"
+                        disabled={disabled}
+                        onClick={batchChangeWrapper(inBatch, r, operation)}
+                      >
+                        {!inBatch ? (operation == IngredientView.add ? <AddIcon /> : <RemoveIcon />)
+                                  : <CancelIcon />}
+                      </IconButton>
+                    </div>
                   }
                   position="below"
                 />
-                <Button
-                  style={{
-                    borderRadius: "30px",
-                    color: "black",
-                    backgroundColor: "white",
-                    height: "45px",
-                    textTransform: "none",
-                  }}
-                  disabled={disabled}
-                  onClick={batchChangeWrapper(inBatch, r, operation)}
-                >
-                  {!inBatch ? "Add" : "Remove"}
-                </Button>
               </ImageListItem>
             </div>
           );
@@ -1088,204 +1199,3 @@ export const FireballView = (
     </Stack>
   );
 };
-
-// export async function getStaticProps() {
-//   console.log(anchor.NodeWallet.local());
-//   console.log(anchor.workspace);
-//   return {
-//     props: {}
-//   };
-// }
-
-// import { Col, Layout, Modal, Button } from 'antd';
-// import React, {useState} from 'react';
-// import Masonry from 'react-masonry-css';
-// import { FireballCard } from '../../components/FireballCard';
-// import { FireballCardMint } from '../../components/FireballCardMint';
-// import {useSmallData, usePreviewData, useDummyData} from "../../hooks";
-// import {SmallModalCard} from "../../components/SmallModalCard";
-
-// const { Content } = Layout;
-
-
-// export const FireballView = () => {
-//   const [isModalVisible, setIsModalVisible] = useState(false);
-//   const [minted, setMinted] = useState(false)
-//   const dataSmall = useSmallData();
-//   const mockPreview = usePreviewData();
-//   const dummyData = useDummyData();
-
-//   const breakpointColumnsObj = {
-//     default: 4,
-//     1100: 3,
-//     700: 2,
-//     500: 1,
-//   };
-
-//   const cardGrid = (
-//     <Masonry
-//       breakpointCols={breakpointColumnsObj}
-//       className="my-masonry-grid fireball-masonry"
-//       columnClassName="my-masonry-grid_column"
-//     >
-//       {dataSmall.map((m, id) => {
-//         return (
-//           <FireballCard
-//             key={id}
-//             pubkey={m.pubkey}
-//             name={m.name}
-//             image={m.image}
-//             preview={false}
-//             height={250}
-//             width={250}
-//             artView
-//             test={true}
-//           />
-//         );
-//       })}
-//     </Masonry>
-//   );
-
-//   const showModal = () => {
-//     setIsModalVisible(true);
-//   };
-
-//   const collectorGrid = (
-//     <Masonry
-//       breakpointCols={breakpointColumnsObj}
-//       className="my-masonry-grid fireball-masonry"
-//       columnClassName="my-masonry-grid_column"
-//     >
-//       {
-//         dummyData.map((m, id) => {
-//         return (
-//           <FireballCardMint
-//             key={id}
-//             pubkey={m.pubkey}
-//             name={m.name}
-//             image={m.image}
-//             preview={false}
-//             height={250}
-//             width={250}
-//             artView
-//             test={true}
-//             onClick={showModal}
-//           />
-//         );
-//       })
-//       }
-//     </Masonry>
-//   );
-
-//   const handleOk = () => {
-//     setIsModalVisible(false);
-//   };
-
-//   const handleCancel = () => {
-//     setIsModalVisible(false);
-//   };
-
-//   const handleMint = () => {
-//     setMinted(p => !p);
-//   }
-
-//   return (
-//     <Layout style={{ margin: 0, marginTop: 30}}>
-//       <p className={"text-title"}>Collector NFTs</p>
-//       <p className={"text-subtitle"}>You can burn 13 NFTs to redeem an exclusive NFT. You don’t have enough right now.</p>
-//       <Content style={{ display: 'flex', flexWrap: 'wrap' }}>
-//         <Col style={{ width: '100%', marginTop: 10}}>{collectorGrid}</Col>
-//       </Content>
-//       <div className={"row"}>
-//         <p className={"text-title"}>Your NFTs</p>
-//         <div className={"unlock-nft"}> <p className={"unlock-text"}>3/13 NFTs unlocked</p></div>
-//       </div>
-//       <p className={"text-subtitle"}>The NFTs you have collected so far.</p>
-//       <br/>
-//       <Content style={{ display: 'flex', flexWrap: 'wrap' }}>
-//         <Col style={{ width: '100%', marginTop: 10}}>{cardGrid}</Col>
-//       </Content>
-//       <Modal
-//         className={"modal-mint"}
-//         visible={isModalVisible}
-//         onOk={handleOk}
-//         onCancel={handleCancel}
-//         footer={[]}
-//       >
-//         {
-//           minted ?
-//             <div className={"minted-modal"}>
-//               <div className={"modal-image-container"}>
-//                 <FireballCard
-//                   key={mockPreview.name}
-//                   pubkey={mockPreview.pubkey}
-//                   preview={false}
-//                   height={250}
-//                   width={250}
-//                   artView
-//                   image={mockPreview.image}
-//                   name={mockPreview.name}
-//                   test={true}
-//                 />
-//               </div>
-//               <div className={"modal-content-container"}>
-//                 <div>
-//                   <p className={"modal-title-mint"}>Congratulations, Jake! </p>
-//                   <p>Your 13 NFTs have been burned to mint ownership to  ‘Pink Cloud’ by PPLPLEASER. </p>
-//                 </div>
-//                 <div className={"modal-button-container"}>
-//                  <Button className={"mint-modal-btn"} onClick={handleCancel}>Check out your NFT</Button>
-//                 </div>
-//               </div>
-//             </div> :
-//           <>
-//             <p className={"modal-title-mint"}>Confirm minting</p>
-//             <p>NOTE: You will lose your old NFTs after minting. </p>
-//             <div className={"modal-button-container"}>
-//               <Button className={"mint-modal-btn"} key={"back"} onClick={handleMint}> Mint</Button>
-//               <Button className={"cancel-modal-btn"} key={"back"} onClick={handleCancel}> Cancel</Button>
-//             </div>
-//             <div className={"modal-content-mint"}>
-//               <div>
-//                 <p className={"modal-subtitle-mint"} >Burning 13 NFTs</p>
-//                 <div className={"nft-list"}>
-//                   {
-//                     dataSmall.map((m, id) => {
-//                     return (
-//                       <SmallModalCard
-//                         key={id}
-//                         pubkey={m.pubkey}
-//                         preview={false}
-//                         height={80}
-//                         width={80}
-//                         artView
-//                         image={m.image}
-//                         name={m.name}
-//                         test={true}
-//                       />
-//                     );
-//                   })
-//                   }
-//                 </div>
-//               </div>
-//               <div>
-//                 <p className={"modal-subtitle-mint"}>To mint</p>
-//                 <FireballCard
-//                   key={mockPreview.name}
-//                   pubkey={mockPreview.pubkey}
-//                   preview={false}
-//                   height={250}
-//                   width={250}
-//                   artView
-//                   image={mockPreview.image}
-//                   name={mockPreview.name}
-//                   test={true}
-//                 />
-//               </div>
-//             </div>
-//           </>
-//         }
-//       </Modal>
-//     </Layout>
-//   );
-// };
