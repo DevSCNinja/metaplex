@@ -36,7 +36,7 @@ import {
 import * as anchor from '@project-serum/anchor';
 import {
   Connection,
-  useConnection,
+  useConnectionConfig,
   chunks,
   decodeMasterEdition,
   decodeMetadata,
@@ -405,6 +405,53 @@ const getRelevantTokenAccounts = async (
   return ret;
 };
 
+const fetchRelevantMints = async (
+  anchorWallet : anchor.Wallet,
+  program : anchor.Program,
+  connection : RPCConnection,
+  recipeKey : PublicKey,
+) => {
+  if (!anchorWallet || !program) {
+    return;
+  }
+
+  const startTime = getUnixTs();
+  let recipe;
+  try {
+    recipe = await program.account.recipe.fetch(recipeKey);
+  } catch (err) {
+    const recipeKeyStr = recipeKey.toBase58();
+    throw new Error(`Failed to find recipe ${recipeKeyStr}`);
+  }
+
+  console.log('Finished recipe fetch', getUnixTs() - startTime);
+
+  const ingredientUrl = recipe.ingredients.replace(/\0/g, '');
+  const ingredientList = await (await fetch(ingredientUrl)).json();
+
+  console.log('Finished ingerdients fetch', getUnixTs() - startTime);
+
+  if (recipe.roots.length !== ingredientList.length) {
+    throw new Error(`Recipe has a different number of ingredient lists and merkle hashes. Bad configuration`);
+  }
+
+  const onChainIngredients = await getOnChainIngredients(
+        connection, recipeKey, anchorWallet.publicKey, ingredientList);
+
+  console.log('Finished on-chain ingredients fetch', getUnixTs() - startTime);
+
+  const relevantMints = await getRelevantTokenAccounts(
+        connection, anchorWallet.publicKey, ingredientList);
+
+  console.log('Finished relevant tokens fetch', getUnixTs() - startTime);
+
+  return {
+    ingredientList,
+    onChainIngredients,
+    relevantMints,
+  };
+};
+
 enum IngredientView {
   add = 'add',
   recover = 'recover',
@@ -415,7 +462,11 @@ export type RedeemProps = {};
 export const FireballView = (
   props : RouteComponentProps<RedeemProps>,
 ) => {
-  const connection = useConnection();
+  const { endpoint } = useConnectionConfig();
+  const connection = React.useMemo(
+    () => new RPCConnection(endpoint.url, 'recent'),
+    [endpoint]
+  );
   const wallet = useWallet();
 
   const anchorWallet = React.useMemo(() => {
@@ -458,16 +509,7 @@ export const FireballView = (
     wrap();
   }, [anchorWallet]);
 
-  let query = "";
-  if (query && query.length > 0) {
-    localStorage.setItem("redeemQuery", query);
-  } else {
-    const stored = localStorage.getItem("redeemQuery");
-    if (stored)
-      query = stored;
-  }
-  const params = queryString.parse(query);
-  const [recipe, setRecipe] = React.useState(params.recipe);
+  const recipeKey = new PublicKey("95YJ5dRs7573232HSZY2dkGgZ76Xcjy97oXv8SFXBLNF");
 
   const [recipeYields, setRecipeYields] = React.useState<Array<RecipeYield>>([]);
   const [relevantMints, setRelevantMints] = React.useState<Array<RelevantMint>>([]);
@@ -476,44 +518,35 @@ export const FireballView = (
   const [changeList, setChangeList] = React.useState<Array<any>>([]);
   const [ingredientView, setIngredientView] = React.useState(IngredientView.add);
 
-  // TODO: on page load also
-  const fetchRelevantMints = async (recipeKey : PublicKey) => {
-    if (!anchorWallet || !program) {
-      return;
-    }
 
-    const startTime = getUnixTs();
-    let recipe;
+  React.useMemo(() => {
+    if (!connection || !anchorWallet || !program) return;
+    console.log(anchorWallet, program, connection, recipeKey);
     try {
-      recipe = await program.account.recipe.fetch(recipeKey);
+      const wrap = async () => {
+        try {
+          setRecipeYields(await getRecipeYields(connection, recipeKey));
+          console.log("ingredient list", ingredientList);
+        } catch (err) {
+          console.log('Fetch yield preview err', err);
+        }
+        try {
+          const { ingredientList, onChainIngredients, relevantMints } =
+              await fetchRelevantMints(anchorWallet, program, connection, recipeKey);
+          setIngredientList(ingredientList);
+          setIngredients(onChainIngredients)
+          setRelevantMints(relevantMints);
+        } catch (err) {
+          console.log('Fetch relevant mints err', err);
+        }
+      };
+      wrap();
     } catch (err) {
-      throw new Error(`Failed to find recipe ${recipeKey.toBase58()}`);
+      setRecipeYields([]);
+      console.log('Key decode err', err);
     }
+  }, [anchorWallet?.publicKey, !program, !connection, recipeKey.toBase58()]);
 
-    console.log('Finished recipe fetch', getUnixTs() - startTime);
-
-    const ingredientUrl = recipe.ingredients.replace(/\0/g, '');
-    const ingredientList = await (await fetch(ingredientUrl)).json();
-
-    console.log('Finished ingerdients fetch', getUnixTs() - startTime);
-
-    if (recipe.roots.length !== ingredientList.length) {
-      throw new Error(`Recipe has a different number of ingredient lists and merkle hashes. Bad configuration`);
-    }
-
-    // cache for later...
-    setIngredientList(ingredientList);
-
-    setIngredients(await getOnChainIngredients(
-          connection, recipeKey, anchorWallet.publicKey, ingredientList));
-
-    console.log('Finished on-chain ingredients fetch', getUnixTs() - startTime);
-
-    setRelevantMints(await getRelevantTokenAccounts(
-          connection, anchorWallet.publicKey, ingredientList));
-
-    console.log('Finished relevant tokens fetch', getUnixTs() - startTime);
-  };
 
   const addIngredient = async (e : React.SyntheticEvent, ingredient: string, mint: PublicKey) => {
     // TODO: less hacky. let the link click go through
@@ -619,7 +652,6 @@ export const FireballView = (
 
     const startTime = getUnixTs();
 
-    const recipeKey = new PublicKey(recipe);
     const [dishKey, dishBump] = await PublicKey.findProgramAddress(
       [
         FIREBALL_PREFIX,
@@ -807,7 +839,6 @@ export const FireballView = (
       throw new Error(`Wallet or program is not connected`);
     }
 
-    const recipeKey = new PublicKey(recipe);
     const [dishKey, ] = await PublicKey.findProgramAddress(
       [
         FIREBALL_PREFIX,
@@ -1116,80 +1147,6 @@ export const FireballView = (
     );
   };
 
-  React.useEffect(() => {
-    setLoading(true);
-    try {
-      const recipeKey = new PublicKey(recipe);
-      const wrap = async () => {
-        try {
-          setRecipeYields(await getRecipeYields(connection, recipeKey));
-        } catch (err) {
-          console.log('Fetch yield preview err', err);
-        }
-        setLoading(false);
-      };
-      wrap();
-    } catch (err) {
-      setRecipeYields([]);
-      console.log('Key decode err', err);
-      setLoading(false);
-    }
-  }, [recipe]);
-
-  const recipeFieldC = (disabled : boolean) => {
-    return (
-      <TextField
-        id="recipe-field"
-        label={`Recipe`}
-        value={recipe}
-        inputProps={{
-          sx: { fontFamily: 'Monospace' }
-        }}
-        disabled={disabled}
-        onChange={e => setRecipe(e.target.value)}
-      />
-    );
-  };
-
-  const chooseRecipeC = (onClick) => {
-    return (
-      <React.Fragment>
-        {recipeFieldC(false)}
-        <Box sx={{ position: "relative" }}>
-        <Button
-          disabled={!anchorWallet || loading}
-          variant="contained"
-          color="primary"
-          style={{ width: "100%" }}
-          onClick={() => {
-            setLoading(true);
-            const wrap = async () => {
-              try {
-                // TODO: race condition between setting and clicking...
-                const key = new PublicKey(recipe);
-                await fetchRelevantMints(key);
-                setLoading(false);
-                onClick();
-              } catch (err) {
-               notify({
-                  message: 'Fetch relevant mints failed',
-                  description: `${err}`,
-                });
-                setLoading(false);
-              }
-            };
-            wrap();
-          }}
-        >
-          Next
-        </Button>
-        {loading && loadingProgress()}
-        </Box>
-        {recipeYieldsC({cols: 1, shortenAddress: true})}
-      </React.Fragment>
-    );
-  };
-
   // TODO: delay until ingredients is non-empty?
   const selectIngredientsC = (onClick) => {
     const operatingList = ingredientView === IngredientView.add
@@ -1197,7 +1154,6 @@ export const FireballView = (
       : dishIngredients;
     return (
       <React.Fragment>
-        {recipeFieldC(true)}
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs
             value={ingredientView == IngredientView.add ? 0 : 1}
@@ -1271,14 +1227,12 @@ export const FireballView = (
   const selectYieldC = () => {
     return (
       <React.Fragment>
-        {recipeFieldC(true)}
         {recipeYieldsC({cols: 1, canClaim: true, shortenAddress: false})}
       </React.Fragment>
     );
   };
 
   const steps = [
-    { name: "Choose Recipe"      , inner: chooseRecipeC      } ,
     { name: "Select Ingredients" , inner: selectIngredientsC } ,
     { name: "Select Yield"       , inner: selectYieldC       } ,
   ];

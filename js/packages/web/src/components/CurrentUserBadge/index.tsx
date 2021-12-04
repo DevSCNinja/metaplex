@@ -19,7 +19,7 @@ import {
   WRAPPED_SOL_MINT,
   HashQueryLink,
 } from '@oyster/common';
-import { useMeta, useSolPrice } from '../../contexts';
+import { useSolPrice } from '../../contexts';
 import { useTokenList } from '../../contexts/tokenList';
 import { TokenCircle } from '../Custom';
 
@@ -28,73 +28,6 @@ import { TokenCircle } from '../Custom';
 const btnStyle: React.CSSProperties = {
   border: 'none',
   height: 40,
-};
-
-const UserActions = (props: { mobile?: boolean; onClick?: any }) => {
-  const { wallet, publicKey } = useWallet();
-  const { whitelistedCreatorsByCreator, store } = useMeta();
-  const pubkey = publicKey?.toBase58() || '';
-
-  const canCreate = useMemo(() => {
-    return (
-      store?.info?.public ||
-      whitelistedCreatorsByCreator[pubkey]?.info?.activated
-    );
-  }, [pubkey, whitelistedCreatorsByCreator, store]);
-
-  return (
-    <>
-      {store &&
-        (props.mobile ? (
-          <div className="actions-buttons actions-user">
-            {canCreate && (
-              <HashQueryLink to={`/art/create`}>
-                <Button
-                  onClick={() => {
-                    props.onClick ? props.onClick() : null;
-                  }}
-                  className="black-btn"
-                >
-                  Create
-                </Button>
-              </HashQueryLink>
-            )}
-            <HashQueryLink to={`/auction/create/0`}>
-              <Button
-                onClick={() => {
-                  props.onClick ? props.onClick() : null;
-                }}
-                className="black-btn"
-              >
-                Sell
-              </Button>
-            </HashQueryLink>
-          </div>
-        ) : (
-          <div
-            style={{
-              display: 'flex',
-            }}
-          >
-            {canCreate && (
-              <>
-                <HashQueryLink to={`/art/create`} style={{ width: '100%' }}>
-                  <Button className="metaplex-button-default" style={btnStyle}>
-                    Create
-                  </Button>
-                </HashQueryLink>
-                &nbsp;&nbsp;
-              </>
-            )}
-            <HashQueryLink to={`/auction/create/0`} style={{ width: '100%' }}>
-              <Button className="metaplex-button-default" style={btnStyle}>
-                Sell
-              </Button>
-            </HashQueryLink>
-          </div>
-        ))}
-    </>
-  );
 };
 
 const AddFundsModal = (props: {
@@ -311,7 +244,6 @@ export const CurrentUserBadge = (props: {
                     Disconnect
                   </Button>
                 </div>
-                <UserActions />
               </div>
             }
           />
@@ -505,14 +437,6 @@ export const CurrentUserBadgeMobile = (props: {
         <Button className="black-btn" onClick={disconnect}>
           Disconnect
         </Button>
-      </div>
-      <div className="actions-buttons">
-        <UserActions
-          mobile
-          onClick={() => {
-            props.closeModal ? props.closeModal() : null;
-          }}
-        />
       </div>
       <AddFundsModal
         setShowAddFundsModal={setShowAddFundsModal}
