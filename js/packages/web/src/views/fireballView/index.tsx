@@ -7,10 +7,12 @@ import { Image } from 'antd';
 import {
   Box,
   Button,
+  Card,
   CircularProgress,
   Link as HyperLink,
   ImageList,
   ImageListItem,
+  ImageListItemBar,
   Stack,
   Step,
   StepLabel,
@@ -71,67 +73,6 @@ import {
 import {
   MerkleTree,
 } from "../../utils/merkleTree";
-
-export const HoverButton = (
-  props : {
-    handleClick : (e : React.SyntheticEvent) => void,
-    hoverDisplay : React.ReactNode,
-    children : React.ReactNode,
-    padding : number,
-    disabled : boolean,
-  },
-) => {
-  const [hovering, setHovering] = React.useState(false);
-
-  const shade = "rgba(255,255,255,.2)";
-
-  return (
-    <Button
-      onMouseOver={() => setHovering(true)}
-      onMouseLeave={() => setHovering(false)}
-      onClick={props.handleClick}
-      disabled={props.disabled}
-      disableRipple={true}
-      variant="contained"
-      style={{
-        padding: props.padding,
-        textTransform: "none",
-        color: "white",
-        backgroundColor: shade,
-      }}
-    >
-      <Box sx={{ position: "relative" }}>
-        {props.children}
-        {hovering && (
-          <React.Fragment>
-            <Box
-              sx={{
-                width: '100%',
-                height: '100%',
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                backgroundColor: "rgba(0, 0, 0, .75)",
-              }}
-            />
-            <Box
-              sx={{
-                position: 'absolute',
-                left: 0,
-                right: 0,
-                margin: 'auto',
-                top: '50%',
-                transform: 'translateY(-50%)',
-              }}
-            >
-              {props.hoverDisplay}
-            </Box>
-          </React.Fragment>
-        )}
-      </Box>
-    </Button>
-  );
-};
 
 export const ThreeDots = () => (
   <ContentLoader
@@ -258,7 +199,7 @@ const fetchMintsAndImages = async (
   return schemaJsons.map((schema, idx) => {
     return {
       mint: mintKeys[idx],
-      name: metadatasDecoded[idx].data.name,
+      name: schema.name,
       image: schema.image,
     };
   });
@@ -442,6 +383,7 @@ const fetchRelevantMints = async (
 
   const relevantMints = await getRelevantTokenAccounts(
         connection, anchorWallet.publicKey, ingredientList);
+  console.log(relevantMints);
 
   console.log('Finished relevant tokens fetch', getUnixTs() - startTime);
 
@@ -509,7 +451,7 @@ export const FireballView = (
     wrap();
   }, [anchorWallet]);
 
-  const recipeKey = new PublicKey("95YJ5dRs7573232HSZY2dkGgZ76Xcjy97oXv8SFXBLNF");
+  const recipeKey = new PublicKey("jjpuB5m3CHAx7HenRYLPbDkFMWqkz4A96SQ8jKZEH6H");
 
   const [recipeYields, setRecipeYields] = React.useState<Array<RecipeYield>>([]);
   const [relevantMints, setRelevantMints] = React.useState<Array<RelevantMint>>([]);
@@ -639,7 +581,7 @@ export const FireballView = (
     setChangeList(newList);
   };
 
-  const submitDishChanges = async (e : React.SyntheticEvent) => {
+  const buildDishChanges = async (e : React.SyntheticEvent) => {
     e.preventDefault();
     if (!anchorWallet || !program) {
       throw new Error(`Wallet or program is not connected`);
@@ -779,55 +721,10 @@ export const FireballView = (
 
     console.log('Finished building instrs', getUnixTs() - startTime);
 
-    if (setup.length === 0) {
-      return;
-    }
-
-    console.log(setup);
-
-    const instrsPerTx = 2; // TODO: adjust based on proof size...
-    const chunked = chunks(setup, instrsPerTx);
-    const passed = await Connection.sendTransactions(
-      program.provider.connection,
-      anchorWallet,
-      chunked,
-      new Array<Keypair[]>(chunked.length).fill([]),
-      Connection.SequenceType.StopOnFailure,
-      'singleGossip',
-      // success callback
-      (txid: string, ind: number) => {
-        notify({
-          message: `Dish Changes succeeded: ${ind + 1} of ${chunked.length}`,
-          description: (
-            <HyperLink href={explorerLinkFor(txid, connection)}>
-              View transaction on explorer
-            </HyperLink>
-          ),
-        });
-      },
-      // failure callback
-      (reason: string, ind: number) => {
-        console.log(`Dish Changes failed on ${ind}: ${reason}`);
-        return true;
-      },
-    );
-
-    console.log(passed);
-
-    if (passed !== chunked.length) {
-      throw new Error(`One of the dish changes failed. See console logs`);
-    }
-
-    setIngredients(await getOnChainIngredients(
-          connection, recipeKey, anchorWallet.publicKey, ingredientList));
-
-    setRelevantMints(await getRelevantTokenAccounts(
-          connection, anchorWallet.publicKey, ingredientList));
-
-    setChangeList([]);
+    return setup;
   };
 
-  const claim = async (e : React.SyntheticEvent, masterMintKey : PublicKey) => {
+  const mintRecipe = async (e : React.SyntheticEvent, masterMintKey : PublicKey) => {
     // TODO: less hacky. let the link click go through
     if ((e.target as any).href !== undefined) {
       return;
@@ -918,29 +815,50 @@ export const FireballView = (
       }
     ));
 
-    console.log(setup);
-
-    const claimResult = await Connection.sendTransactionWithRetry(
+    const dishChanges = await buildDishChanges(e);
+    const txs = [...dishChanges.map(ix => [ix]), setup];
+    const passed = await Connection.sendTransactions(
       program.provider.connection,
       anchorWallet,
-      setup,
-      [newMint],
+      txs,
+      new Array<Keypair[]>(txs.length).fill([]),
+      Connection.SequenceType.StopOnFailure,
+      'singleGossip',
+      // success callback
+      (txid: string, ind: number) => {
+        const message =
+          ind + 1 < txs.length
+          ? `Dish Changes succeeded: ${ind + 1} of ${txs.length - 1}`
+          : `Mint succeeded!`;
+          notify({
+            message,
+            description: (
+              <HyperLink href={explorerLinkFor(txid, connection)}>
+                View transaction on explorer
+              </HyperLink>
+            ),
+          });
+      },
+      // failure callback
+      (reason: string, ind: number) => {
+        console.log(`Mint failed on ${ind}: ${reason}`);
+        return true;
+      },
     );
 
-    console.log(claimResult);
+    console.log(passed);
 
-    if (typeof claimResult === "string") {
-      throw new Error(claimResult);
-    } else {
-      notify({
-        message: "Claim succeeded",
-        description: (
-          <HyperLink href={explorerLinkFor(claimResult.txid, connection)}>
-            View transaction on explorer
-          </HyperLink>
-        ),
-      });
+    if (passed !== chunked.length) {
+      throw new Error(`One of the mint instructions failed. See console logs`);
     }
+
+    setIngredients(await getOnChainIngredients(
+          connection, recipeKey, anchorWallet.publicKey, ingredientList));
+
+    setRelevantMints(await getRelevantTokenAccounts(
+          connection, anchorWallet.publicKey, ingredientList));
+
+    setChangeList([]);
   };
 
 
@@ -973,314 +891,200 @@ export const FireballView = (
     />
   );
 
-  const relevantImagesC = (
-    relevant : Array<RelevantMint>,
-    operation : IngredientView,
-  ) => {
-    return (
-      <ImageList cols={3}>
-        {relevant.map((r, idx) => {
-          const inBatch = changeList.find(c => c.mint === r.mint && c.operation === operation);
-          return (
-            <HoverButton
-              key={idx}
-              padding={inBatch ? 10 : 0}
-              disabled={false}
-              handleClick={e => {
-                setLoading(true);
-                const wrap = async () => {
-                  try {
-                    if (inBatch) {
-                      await cancelChangeForIngredient(e, r.ingredient);
-                    } else if (operation === 'add') {
-                      await addIngredient(e, r.ingredient, r.mint);
-                    } else if (operation === 'recover') {
-                      await recoverIngredient(e, r.ingredient);
-                    } else {
-                      // TODO: error earlier...
-                      throw new Error(`Unknown operation ${operation}`);
-                    }
-                    setLoading(false);
-                  } catch (err) {
-                    notify({
-                      message: `${inBatch ? 'Cancel of ' : ''} ${capitalize(operation)} ingredient failed`,
-                      description: `${err}`,
-                    });
-                    setLoading(false);
-                  }
-                };
-                wrap();
-              }}
-              hoverDisplay={(
-                <React.Fragment>
-                  <div style={{ fontSize: "1.5rem" }}>{r.name}</div>
-                  <div>Ingredient: {r.ingredient}</div>
-                  <div>{explorerLinkForAddress(r.mint)}</div>
-                </React.Fragment>
-              )}
-            >
-              <ImageListItem>
-                <LoadingImage
-                  url={r.image}
-                />
-              </ImageListItem>
-            </HoverButton>
-          );
-        })}
-      </ImageList>
-    );
-  };
-
-  const dishSelectionButtonsC = (onClick) => {
-    return (
-      <React.Fragment>
-
-        <Box sx={{ position: "relative" }}>
-        <Button
-          disabled={
-            !anchorWallet
-            || loading
-            || changeList.length === 0
-          }
-          variant="contained"
-          style={{ width: "100%" }}
-          onClick={(e) => {
-            setLoading(true);
-            const wrap = async () => {
-              try {
-                await submitDishChanges(e);
-                setLoading(false);
-              } catch (err) {
-                console.log(err);
-                notify({
-                  message: `Dish Changes failed`,
-                  description: err.message,
-                });
-                setLoading(false);
-              }
-            };
-            wrap();
-          }}
-        >
-          {ingredientView === IngredientView.add
-            ? 'Add Ingredients'
-            : 'Recover Ingredients'}
-        </Button>
-        {loading && loadingProgress()}
-        </Box>
-
-        <Button
-          disabled={
-            !anchorWallet
-            || loading
-            || dishIngredients.length !== ingredientList.length
-          }
-          variant="contained"
-          style={{ width: "100%" }}
-          onClick={() => {
-            onClick();
-            // TODO: should we requery recipe yields?
-            // setRecipeYields(await getRecipeYields(connection, recipeKey));
-          }}
-        >
-          Next
-        </Button>
-      </React.Fragment>
-    );
-  };
-
-  const recipeYieldsC = (
-    params : {
-      cols: number,
-      canClaim?: boolean,
-      shortenAddress?: boolean,
+  const recipes = [
+    {
+      image: "https://www.arweave.net/EYE3jfEKhzj6vgs1OtrNe7B99SUi6X-iN4dQoOeM3-U?ext=gif",
+      name: "city 1",
+      mint: new PublicKey("8s2RPB1vEy5yTbYa85Y8QR1ATi7PgDBpuCFVNYv4be7s"),
+    },
+    {
+      image: "https://www.arweave.net/25iaa4uK7W56ga9BXz37ZezRcCWx5BC442PBqtNyVPk?ext=gif",
+      name: "city 2",
+      mint: new PublicKey("jQ9LPzPpK1cdsC3qK8iZGWWasCALPZ6aCL5qD7GPHK7"),
+    },
+    { // TODO
+      image: "https://www.arweave.net/RNdstwUgOcXc7ognVkUoTjfoO2B3Kp2iZ34m86x6gzw?ext=gif",
+      name: "ufo",
+      mint: new PublicKey("GHabNiugLr5o5TLTrBLiU26QVFhxoDNgooFZAsZ1yhus"),
     }
-  ) => {
-    // TODO: hover to claim and handle onClick?
-    return (
-      <ImageList cols={params.cols}>
-        {recipeYields.map((r, idx) => {
-          return (
-            <HoverButton
-              key={idx}
-              padding={0}
-              disabled={false}
-              handleClick={e => {
-                if (!params.canClaim) return;
-                setLoading(true);
-                const wrap = async () => {
-                  try {
-                    await claim(e, r.mint);
-                    setLoading(false);
-                  } catch (err) {
-                    notify({
-                      message: `Claim failed`,
-                      description: `${err}`,
-                    });
-                    setLoading(false);
-                  }
-                };
-                wrap();
-              }}
-              hoverDisplay={(
-                <React.Fragment>
-                  {params.canClaim && <Box sx={{fontSize: "2rem"}}>
-                    Claim!
-                  </Box>}
-                  <div style={{ fontSize: "1.5rem" }}>{r.name}</div>
-                  <div>
-                    {!isNaN(r.remaining) && `Remaining: ${r.remaining}`}
-                  </div>
-                  {explorerLinkForAddress(r.mint, params.shortenAddress)}
-                </React.Fragment>
-              )}
-            >
-              <ImageListItem key={idx}>
-                <LoadingImage
-                  url={r.image}
-                />
-              </ImageListItem>
-            </HoverButton>
-          );
-        })}
-      </ImageList>
-    );
-  };
-
-  // TODO: delay until ingredients is non-empty?
-  const selectIngredientsC = (onClick) => {
-    const operatingList = ingredientView === IngredientView.add
-      ? relevantMints
-      : dishIngredients;
-    return (
-      <React.Fragment>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs
-            value={ingredientView == IngredientView.add ? 0 : 1}
-            onChange={(e, newValue) => {
-              switch (newValue) {
-                case 0: {
-                  setChangeList([]);
-                  setIngredientView(IngredientView.add);
-                  break;
-                }
-                case 1: {
-                  setChangeList([]);
-                  setIngredientView(IngredientView.recover);
-                  break;
-                }
-                default: {
-                  throw new Error(`Invalid view value ${newValue}`);
-                }
-              }
-            }}
-          >
-            <Tab label="Wallet" />
-            <Tab label="Dish" />
-          </Tabs>
-        </Box>
-          <Button
-            disabled={!anchorWallet || loading}
-            //variant="contained"
-            style={{ width: "100%" }}
-            onClick={() => {
-              try {
-                const uniqIngredients = operatingList.reduce(
-                  (acc, m) => {
-                    const ingredientStr = m.ingredient;
-                    if (ingredientStr in acc) return acc;
-                    if (ingredientView === IngredientView.add
-                        && dishIngredients.find(c => c.ingredient === ingredientStr)) {
-                      return acc;
-                    }
-                    return {
-                      ...acc,
-                      [ingredientStr]: {
-                        ingredient: m.ingredient,
-                        mint: m.mint,
-                        operation: ingredientView,
-                      },
-                    };
-                  },
-                  {}
-                );
-                setChangeList(Object.values(uniqIngredients));
-              } catch (err) {
-                notify({
-                  message: `Select Ingredients Failed`,
-                  description: `${err}`,
-                });
-              }
-            }}
-          >
-            {ingredientView === IngredientView.add
-              ? 'Select New Ingredients'
-              : 'Select All Ingredients'
-            }
-          </Button>
-        {relevantImagesC(operatingList, ingredientView)}
-        {dishSelectionButtonsC(onClick)}
-      </React.Fragment>
-    );
-  };
-
-  const selectYieldC = () => {
-    return (
-      <React.Fragment>
-        {recipeYieldsC({cols: 1, canClaim: true, shortenAddress: false})}
-      </React.Fragment>
-    );
-  };
-
-  const steps = [
-    { name: "Select Ingredients" , inner: selectIngredientsC } ,
-    { name: "Select Yield"       , inner: selectYieldC       } ,
   ];
 
-  const [activeStep, setActiveStep] = React.useState(0);
-  const stepToUse = Math.min(activeStep, steps.length - 1);
 
-  const handleNext = () => {
-    // return to start if going past the end (claim succeeded)
-    setActiveStep(prev => {
-      if (prev === steps.length - 1) {
-        return 0;
-      } else {
-        return prev + 1;
-      }
-    });
+  const ingredients = {
+    "airplane"           : "https://www.arweave.net/84UaRlQ7lIM6rjGodFsruqNNAoOBt6dBoJ-eHv9Fr50?ext=gif",
+    "bull"               : "https://www.arweave.net/GfSyYWWgOIY3llKsU9CiR_sUKNlIBaE1-Wnx_JgvaC4?ext=gif",
+    "duck with doughnut" : "https://www.arweave.net/4M30mRpOwq9M1DrlMAUipUAaAPsCeMLm8gTSDXo_rmI?ext=gif",
+    "hot air balloon"    : "https://www.arweave.net/_mNWVadW1eA5Be3qJlDJeY5qc5tcfL0VdwJ7mc2oxgU?ext=gif",
+    "house"              : "https://www.arweave.net/StFWkC5bN_vMuY6oluIlJbFMPsCL-6Q93aVCobrA_mM?ext=gif",
+    "normal duck"        : "https://www.arweave.net/PJySMI3c2s-DFvJ_ruRrCScsNJiUDiJsu9J6haeWaww?ext=gif",
+    "rocket"             : "https://www.arweave.net/tWQYjhOarxQbQvF9eGRUnI3S-vaWd8Qj7ag7CmiVRqk?ext=gif",
+    "sailboat"           : "https://www.arweave.net/RIkpf6zSCcFLi6KetJrnwd5feZdlVc9-5E37n58D_H4?ext=gif",
+    "telescope ape"      : "https://www.arweave.net/yxWPmiQY3OBHLn1kWhDOrvuJMNAbkglI3VzrL8xZk1Y?ext=gif",
+    "traincar"           : "https://www.arweave.net/mt_fveAydzly6mEeAUNxDuAWevIe9NPoxBuPoTCDIYY?ext=gif",
+    "ufo"                : "https://www.arweave.net/RNdstwUgOcXc7ognVkUoTjfoO2B3Kp2iZ34m86x6gzw?ext=gif",
+    "umbrella duck"      : "https://www.arweave.net/-ApXoK_X3rlclU-rijXiqU4pm85tggLej4ax3HwsI3U?ext=gif",
+    "whale"              : "https://www.arweave.net/e0VvxBG4VrAmli9v7E0d_JDxqbXohS50D7oExbtzVkg?ext=gif",
   };
-  const handleBack = () => {
-    setActiveStep(prev => prev - 1);
+
+  const batchChangeWrapper = (
+    inBatch : boolean,
+    r : RelevantMint,
+    operation : IngredientView,
+  ) => {
+    return e => {
+      setLoading(true);
+      const wrap = async () => {
+        try {
+          if (inBatch) {
+            await cancelChangeForIngredient(e, r.ingredient);
+          } else if (operation === 'add') {
+            await addIngredient(e, r.ingredient, r.mint);
+          } else if (operation === 'recover') {
+            await recoverIngredient(e, r.ingredient);
+          } else {
+            // TODO: error earlier...
+            throw new Error(`Unknown operation ${operation}`);
+          }
+          setLoading(false);
+        } catch (err) {
+          notify({
+            message: `${inBatch ? 'Cancel of ' : ''} ${capitalize(operation)} ingredient failed`,
+            description: `${err}`,
+          });
+          setLoading(false);
+        }
+      };
+      wrap();
+    };
   };
 
-  const stepper = (
-    <React.Fragment>
-      <Stepper activeStep={stepToUse}>
-        {steps.map(s => {
-          return (
-            <Step key={s.name}>
-              <StepLabel>{s.name}</StepLabel>
-            </Step>
-          );
-        })}
-      </Stepper>
-      <Box />
-    </React.Fragment>
-  );
-
+  const cols = 4;
+  // TODO: width sizing
   return (
     <Stack spacing={2}>
-      {stepper}
-      {steps[stepToUse].inner(handleNext)}
-      {stepToUse > 0 && (
-        <Button
-          color="info"
-          onClick={handleBack}
-        >
-          Back
-        </Button>
-      )}
+      <ImageList cols={cols}>
+        {recipes.map((r, idx) => {
+          return (
+            <div
+              key={idx}
+              style={{
+                padding: "20px",
+              }}
+            >
+              <ImageListItem>
+                <img
+                  src={r.image}
+                  style={{
+                    borderRadius: "2px",
+                    padding: 2,
+                    backgroundColor: "white",
+                  }}
+                />
+                <ImageListItemBar
+                  title={r.name}
+                  subtitle={explorerLinkForAddress(r.mint)}
+                  position="below"
+                />
+                <Button
+                  style={{
+                    borderRadius: "30px",
+                    color: "black",
+                    backgroundColor: "white",
+                    height: "45px",
+                  }}
+                  disabled={!Object.keys(ingredients).reduce(
+                    (acc, ingredient) => {
+                      return acc && changeList.find(c => c.ingredient === ingredient);
+                    },
+                    true,
+                  )}
+                  onClick={e => {
+                    setLoading(true);
+                    const wrap = async () => {
+                      try {
+                        await mintRecipe(e, r.mint);
+                        setLoading(false);
+                      } catch (err) {
+                        notify({
+                          message: `Mint failed`,
+                          description: `${err}`,
+                        });
+                        setLoading(false);
+                      }
+                    };
+                    wrap();
+                  }}
+                >
+                  Mint
+                </Button>
+              </ImageListItem>
+            </div>
+          );
+        })}
+      </ImageList>
+      <ImageList cols={cols}>
+        {Object.keys(ingredients).map((ingredient, idx) => {
+          const ingredientInDish = false;
+          const ingredientInWallet = relevantMints.find(c => c.ingredient === ingredient);
+
+          let imgStyle, disabled;
+          if (ingredientInWallet) {
+            imgStyle = {}
+            disabled = false;
+          } else {
+            imgStyle = { filter: "grayscale(100%)", };
+            disabled = true;
+          }
+
+          const r = ingredientInWallet;
+          const operation = IngredientView.add;
+          const inBatch = changeList.find(
+              c => r && c.mint.equals(r.mint) && c.operation === operation);
+          console.log(ingredient, inBatch, changeList);
+          return (
+            <div
+              key={idx}
+              style={{
+                padding: "20px",
+              }}
+            >
+              <ImageListItem>
+                <img
+                  src={ingredients[ingredient]}
+                  style={{
+                    borderRadius: "2px",
+                    padding: inBatch ? 10 : 2,
+                    backgroundColor: "white",
+                    ...imgStyle,
+                  }}
+                />
+                <ImageListItemBar
+                  title={ingredient}
+                  subtitle={
+                    r
+                      ? explorerLinkForAddress(r.mint)
+                      : <p sx={{ fontFamily: 'Monospace' }}>{"\u00A0"}</p>
+                  }
+                  position="below"
+                />
+                <Button
+                  style={{
+                    borderRadius: "30px",
+                    color: "black",
+                    backgroundColor: "white",
+                    height: "45px",
+                    textTransform: "none",
+                  }}
+                  disabled={disabled}
+                  onClick={batchChangeWrapper(inBatch, r, operation)}
+                >
+                  {!inBatch ? "Add" : "Remove"}
+                </Button>
+              </ImageListItem>
+            </div>
+          );
+        })}
+      </ImageList>
     </Stack>
   );
 };
