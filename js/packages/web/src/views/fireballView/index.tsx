@@ -520,6 +520,7 @@ export const FireballView = (
           setIngredientList(ingredientList);
           setIngredients(onChainIngredients)
           setRelevantMints(relevantMints);
+          setMatchingIndices({});
         } catch (err) {
           console.log('Fetch relevant mints err', err);
         }
@@ -814,6 +815,7 @@ export const FireballView = (
           connection, anchorWallet.publicKey, ingredientList));
 
     setChangeList([]);
+    setMatchingIndices({});
   };
 
   const mintRecipe = async (
@@ -948,7 +950,7 @@ export const FireballView = (
 
     console.log(passed);
 
-    if (passed !== chunked.length) {
+    if (passed !== txs.length) {
       throw new Error(`One of the mint instructions failed. See console logs`);
     }
 
@@ -959,6 +961,7 @@ export const FireballView = (
           connection, anchorWallet.publicKey, ingredientList));
 
     setChangeList([]);
+    setMatchingIndices({});
   };
 
 
