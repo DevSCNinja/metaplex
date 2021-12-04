@@ -18,16 +18,17 @@ const getDefaultLinkActions = (connected: boolean) => {
 };
 
 const DefaultActions = ({ vertical = false }: { vertical?: boolean }) => {
-  const { connected } = useWallet();
+  // const { connected } = useWallet();
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: vertical ? 'column' : 'row',
-      }}
-    >
-      {getDefaultLinkActions(connected)}
-    </div>
+    null
+    // <div
+    //   style={{
+    //     display: 'flex',
+    //     flexDirection: vertical ? 'column' : 'row',
+    //   }}
+    // >
+    //   {getDefaultLinkActions(connected)}
+    // </div>
   );
 };
 

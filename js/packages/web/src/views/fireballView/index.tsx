@@ -26,6 +26,8 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import CancelIcon from '@mui/icons-material/Cancel';
 import RemoveIcon from '@mui/icons-material/Remove';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 
 import {
   Connection as RPCConnection,
@@ -456,12 +458,13 @@ export const FireballView = (
     wrap();
   }, [anchorWallet]);
 
-  const recipeKey = new PublicKey("jjpuB5m3CHAx7HenRYLPbDkFMWqkz4A96SQ8jKZEH6H");
+  const recipeKey = new PublicKey("9Ttdz6SpoqsdKQoEwk9SSCgfCz3hv38yDRQQ8L8j2QZp");
 
   const [relevantMints, setRelevantMints] = React.useState<Array<RelevantMint>>([]);
   const [ingredientList, setIngredientList] = React.useState<Array<any>>([]);
   const [dishIngredients, setIngredients] = React.useState<Array<RelevantMint>>([]);
   const [changeList, setChangeList] = React.useState<Array<any>>([]);
+  const [matchingIndices, setMatchingIndices] = React.useState<{ [key: string]: number }>({});
 
   const recipes = [ // TODO: metadata link to find editions remaining
     {
@@ -619,7 +622,7 @@ export const FireballView = (
     setChangeList(newList);
   };
 
-  const buildDishChanges = async (e : React.SyntheticEvent) => {
+  const buildDishChanges = async (e : React.SyntheticEvent, changeList : array<any>) => {
     e.preventDefault();
     if (!anchorWallet || !program) {
       throw new Error(`Wallet or program is not connected`);
@@ -763,7 +766,7 @@ export const FireballView = (
 
 
   const submitDishChanges = async (e : React.SyntheticEvent) => {
-    const setup = await buildDishChanges(e);
+    const setup = await buildDishChanges(e, changeList);
     console.log(setup);
     if (setup.length === 0) {
       return;
@@ -813,7 +816,11 @@ export const FireballView = (
     setChangeList([]);
   };
 
-  const mintRecipe = async (e : React.SyntheticEvent, masterMintKey : PublicKey) => {
+  const mintRecipe = async (
+    e : React.SyntheticEvent,
+    masterMintKey : PublicKey,
+    changeList : array<any>,
+  ) => {
     // TODO: less hacky. let the link click go through
     if ((e.target as any).href !== undefined) {
       return;
@@ -908,7 +915,7 @@ export const FireballView = (
       }
     ));
 
-    const dishChanges = await buildDishChanges(e);
+    const dishChanges = await buildDishChanges(e, changeList);
     const txs = [...dishChanges.map(ix => [ix]), setup];
     const passed = await Connection.sendTransactions(
       program.provider.connection,
@@ -1046,24 +1053,54 @@ export const FireballView = (
                   position="below"
                 />
                 <Button
+                  variant="outlined"
                   style={{
                     borderRadius: "30px",
                     height: "45px",
+                    color: (!anchorWallet || !program || loading) ? "gray" : "white",
+                    borderColor: (!anchorWallet || !program || loading) ? "gray" : "white",
                   }}
-                  variant="outlined"
-                  color="white"
                   disabled={!anchorWallet || !program || loading}
                   onClick={e => {
                     setLoading(true);
                     const wrap = async () => {
                       try {
-                        await mintRecipe(e, r.mint);
+                        const newIngredients = Object.keys(ingredients).reduce(
+                          (acc, ingredient) => {
+                            if (dishIngredients.find(c => c.ingredient === ingredient)) {
+                              return acc;
+                            }
+                            const matchingIngredients = relevantMints.filter(
+                                c => c.ingredient === ingredient);
+                            if (matchingIngredients.length === 0) {
+                              throw new Error(`You don't have ingredient ${ingredient}`);
+                            }
+                            let index = matchingIndices[ingredient] || 0;
+                            if (index >= matchingIngredients.length) {
+                              console.warn(`Bad index ${index} of ${matchingIngredients.length} for ${ingredient}`);
+                              index = 0;
+                            }
+                            const r = matchingIngredients[index];
+                            return {
+                              ...acc,
+                              [ingredient]: {
+                                ingredient,
+                                mint: r.mint,
+                                operation: IngredientView.add,
+                              },
+                            };
+                          },
+                          {}
+                        );
+                        setChangeList(Object.values(newIngredients));
+                        await mintRecipe(e, r.mint, Object.values(newIngredients));
                         setLoading(false);
                       } catch (err) {
                         notify({
                           message: `Mint failed`,
-                          description: `${err}`,
+                          description: err.message,
                         });
+                        setChangeList([]);
                         setLoading(false);
                       }
                     };
@@ -1086,12 +1123,13 @@ export const FireballView = (
           </p>
         </div>
         <Button
+          variant="outlined"
           style={{
             borderRadius: "30px",
             height: "45px",
+            color: (!anchorWallet || !program || loading) ? "gray" : "white",
+            borderColor: (!anchorWallet || !program || loading) ? "gray" : "white",
           }}
-          variant="outlined"
-          color="white"
           disabled={!anchorWallet || !program || loading}
           onClick={e => {
             setLoading(true);
@@ -1130,7 +1168,12 @@ export const FireballView = (
             disabled = true;
           }
 
-          const r = dishIngredient ? dishIngredient : matchingIngredients[0];
+          let index = matchingIndices[ingredient] || 0;
+          if (index >= matchingIngredients.length) {
+            console.warn(`Bad index ${index} of ${matchingIngredients.length} for ${ingredient}`);
+            index = 0;
+          }
+          const r = dishIngredient ? dishIngredient : matchingIngredients[index];
           const operation = dishIngredient ? IngredientView.recover: IngredientView.add;
           const inBatch = changeList.find(
               c => r && c.mint.equals(r.mint) && c.operation === operation);
@@ -1179,8 +1222,44 @@ export const FireballView = (
                   }
                   actionIcon={
                     <div style={{ paddingTop: "6px", paddingBottom: "12px" }}>
+                      {!dishIngredient && matchingIngredients.length > 1 && (
+                        <React.Fragment>
+                          <IconButton
+                            style={{
+                              color: index == 0 ? "gray" : "white",
+                            }}
+                            disabled={index == 0}
+                            onClick={() => {
+                              const nextIndex = index - 1;
+                              setMatchingIndices({
+                                ...matchingIndices,
+                                [ingredient]: nextIndex,
+                              });
+                            }}
+                          >
+                            <ChevronLeftIcon />
+                          </IconButton>
+                          <IconButton
+                            style={{
+                              color: index == matchingIngredients.length - 1 ? "gray" : "white",
+                            }}
+                            disabled={index == matchingIngredients.length - 1}
+                            onClick={() => {
+                              const nextIndex = index + 1;
+                              setMatchingIndices({
+                                ...matchingIndices,
+                                [ingredient]: nextIndex,
+                              });
+                            }}
+                          >
+                            <ChevronRightIcon />
+                          </IconButton>
+                        </React.Fragment>
+                      )}
                       <IconButton
-                        color="white"
+                        style={{
+                          color: disabled ? "gray" : "white",
+                        }}
                         disabled={disabled}
                         onClick={batchChangeWrapper(inBatch, r, operation)}
                       >
