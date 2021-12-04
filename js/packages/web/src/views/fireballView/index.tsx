@@ -22,6 +22,7 @@ import {
   Tab,
   Tabs,
   TextField,
+  Tooltip,
 } from "@mui/material";
 import AddIcon from '@mui/icons-material/Add';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -254,9 +255,9 @@ const getRecipeYields = async (
       const maxSupply = new BN(edition.maxSupply);
       const supply = new BN(edition.supply);
       if (supply.gte(maxSupply)) {
-        return 0;
+        return [0, maxSupply.toNumber()];
       } else {
-        return maxSupply.sub(supply).toNumber();
+        return [maxSupply.sub(supply).toNumber(), maxSupply.toNumber()];
       }
     })
     .reduce((acc, n, idx) => {
@@ -460,6 +461,7 @@ export const FireballView = (
 
   const recipeKey = new PublicKey("9Ttdz6SpoqsdKQoEwk9SSCgfCz3hv38yDRQQ8L8j2QZp");
 
+  const [recipeYields, setRecipeYields] = React.useState<Array<RecipeYield>>([]);
   const [relevantMints, setRelevantMints] = React.useState<Array<RelevantMint>>([]);
   const [ingredientList, setIngredientList] = React.useState<Array<any>>([]);
   const [dishIngredients, setIngredients] = React.useState<Array<RelevantMint>>([]);
@@ -503,11 +505,32 @@ export const FireballView = (
     );
   }, 0);
 
+  const [loading, setLoading] = React.useState(false);
+  const loadingProgress = () => (
+    <CircularProgress
+      size={24}
+      sx={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        marginTop: '-12px',
+        marginLeft: '-12px',
+      }}
+    />
+  );
+
   React.useMemo(() => {
     if (!connection || !anchorWallet || !program) return;
-    console.log(anchorWallet, program, connection, recipeKey);
+    setLoading(true);
     try {
       const wrap = async () => {
+        try {
+          setRecipeYields(await getRecipeYields(connection, recipeKey));
+        } catch (err) {
+          console.log('Fetch yield preview err', err);
+          setLoading(false);
+          return;
+        }
         try {
           const { ingredientList, onChainIngredients, relevantMints } =
               await fetchRelevantMints(anchorWallet, program, connection, recipeKey);
@@ -523,11 +546,15 @@ export const FireballView = (
           setMatchingIndices({});
         } catch (err) {
           console.log('Fetch relevant mints err', err);
+          setLoading(false);
+          return;
         }
+        setLoading(false);
       };
       wrap();
     } catch (err) {
       console.log('Key decode err', err);
+      setLoading(false);
     }
   }, [anchorWallet?.publicKey, !program, !connection, recipeKey.toBase58()]);
 
@@ -980,20 +1007,6 @@ export const FireballView = (
     );
   };
 
-  const [loading, setLoading] = React.useState(false);
-  const loadingProgress = () => (
-    <CircularProgress
-      size={24}
-      sx={{
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        marginTop: '-12px',
-        marginLeft: '-12px',
-      }}
-    />
-  );
-
   const batchChangeWrapper = (
     inBatch : boolean,
     r : RelevantMint,
@@ -1027,6 +1040,7 @@ export const FireballView = (
   };
 
   const cols = 4;
+  const topDisabled = !anchorWallet || !program || loading;
   // TODO: width sizing
   return (
     <Stack spacing={1}>
@@ -1034,6 +1048,7 @@ export const FireballView = (
       <p className={"text-subtitle"}>You can burn 13 NFTs to redeem an exclusive city.</p>
       <ImageList cols={cols}>
         {recipes.map((r, idx) => {
+          const recipeYieldAvailable = recipeYields.find(y => y.mint.equals(r.mint));
           return (
             <div
               key={idx}
@@ -1052,18 +1067,32 @@ export const FireballView = (
                 />
                 <ImageListItemBar
                   title={r.name}
-                  subtitle={explorerLinkForAddress(r.mint)}
+                  subtitle={(
+                    <div>
+                      {explorerLinkForAddress(r.mint)}
+                    </div>
+                  )}
                   position="below"
+                />
+                <Chip
+                  label={recipeYieldAvailable ? `${recipeYieldAvailable.remaining[0]}/${recipeYieldAvailable.remaining[1]} remaining`
+                  : 'None remaining'}
+                  size="small"
+                  style={{
+                    marginBottom: "10px",
+                    background: "#4E2946",
+                    color: "white",
+                  }}
                 />
                 <Button
                   variant="outlined"
                   style={{
                     borderRadius: "30px",
                     height: "45px",
-                    color: (!anchorWallet || !program || loading) ? "gray" : "white",
-                    borderColor: (!anchorWallet || !program || loading) ? "gray" : "white",
+                    color: (topDisabled || !recipeYieldAvailable) ? "gray" : "white",
+                    borderColor: (topDisabled || !recipeYieldAvailable) ? "gray" : "white",
                   }}
-                  disabled={!anchorWallet || !program || loading}
+                  disabled={topDisabled || !recipeYieldAvailable}
                   onClick={e => {
                     setLoading(true);
                     const wrap = async () => {
@@ -1125,15 +1154,20 @@ export const FireballView = (
             {`${collected}/${Object.keys(ingredients).length} NFTs collected`}
           </p>
         </div>
+      </div>
+      <p className={"text-subtitle"}>The NFTs you have collected so far.</p>
+      <Tooltip title="Manually add or remove Ingredients by selecting Mints and submitting here">
         <Button
+          size="small"
           variant="outlined"
           style={{
             borderRadius: "30px",
-            height: "45px",
-            color: (!anchorWallet || !program || loading) ? "gray" : "white",
-            borderColor: (!anchorWallet || !program || loading) ? "gray" : "white",
+            maxWidth: "200px",
+            height: "30px",
+            color: topDisabled ? "gray" : "white",
+            borderColor: topDisabled ? "gray" : "white",
           }}
-          disabled={!anchorWallet || !program || loading}
+          disabled={topDisabled}
           onClick={e => {
             setLoading(true);
             const wrap = async () => {
@@ -1152,10 +1186,9 @@ export const FireballView = (
             wrap();
           }}
         >
-          Partial
+          Submit Changes
         </Button>
-      </div>
-      <p className={"text-subtitle"}>The NFTs you have collected so far.</p>
+      </Tooltip>
 
       <ImageList cols={cols}>
         {Object.keys(ingredients).map((ingredient, idx) => {
@@ -1172,7 +1205,7 @@ export const FireballView = (
           }
 
           let index = matchingIndices[ingredient] || 0;
-          if (index >= matchingIngredients.length) {
+          if (matchingIngredients.length > 0 && index >= matchingIngredients.length) {
             console.warn(`Bad index ${index} of ${matchingIngredients.length} for ${ingredient}`);
             index = 0;
           }
