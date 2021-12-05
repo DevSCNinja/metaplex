@@ -63,6 +63,7 @@ import {
 import BN from 'bn.js';
 import { capitalize } from 'lodash';
 
+import useWindowDimensions from '../../utils/layout';
 import {
   getAssociatedTokenAccount,
   getEdition,
@@ -1051,11 +1052,38 @@ export const FireballView = (
     };
   };
 
-  const cols = 4;
+  // TODO: more robust
+  const maxWidth = 1440;
+  const outerPadding = 48 * 2;
+  const columnsGap = 4;
+  const maxColumns = 4;
+  const columnWidth = (maxWidth - outerPadding - columnsGap * (maxColumns - 1)) / maxColumns;
+
+  const tilePadding = 20;
+  const imageWidth = columnWidth - tilePadding * 2;
+
+  const { width } = useWindowDimensions();
+  const sizedColumns = (width : number) => {
+           if (width > columnWidth * 4 + columnsGap * 3 + outerPadding) {
+      return 4;
+    } else if (width > columnWidth * 3 + columnsGap * 2 + outerPadding) {
+      return 3;
+    } else if (width > columnWidth * 2 + columnsGap * 1 + outerPadding) {
+      return 2;
+    } else {
+      return 1;
+    }
+  };
+  const cols = sizedColumns(width);
   const topDisabled = !anchorWallet || !program || loading;
   // TODO: width sizing
   return (
-    <Stack spacing={1}>
+    <Stack
+      spacing={1}
+      style={{
+        width: columnWidth * cols + columnsGap * (cols - 1),
+      }}
+    >
       <p className={"text-title"}>Collectoooooor NFTs</p>
       <p className={"text-subtitle"}>You can burn 13 NFTs to redeem an exclusive city.</p>
       <ImageList cols={cols}>
@@ -1066,6 +1094,7 @@ export const FireballView = (
               key={idx}
               style={{
                 padding: "20px",
+                width: columnWidth,
               }}
             >
               <ImageListItem>
@@ -1232,6 +1261,7 @@ export const FireballView = (
               key={idx}
               style={{
                 padding: "20px",
+                width: columnWidth,
               }}
             >
               <ImageListItem>
