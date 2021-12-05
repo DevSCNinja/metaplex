@@ -354,6 +354,21 @@ const getRelevantTokenAccounts = async (
   return ret;
 };
 
+const fetchWalletIngredients = async (
+  connection : RPCConnection,
+  recipeKey : PublicKey,
+  walletKey : PublicKey,
+  ingredientList: array<any>,
+) => {
+  const onChainIngredientsPromise = getOnChainIngredients(
+      connection, recipeKey, walletKey, ingredientList);
+
+  const relevantMintsPromise = getRelevantTokenAccounts(
+      connection, walletKey, ingredientList);
+
+  return await Promise.all([onChainIngredientsPromise, relevantMintsPromise]);
+};
+
 const fetchRelevantMints = async (
   anchorWallet : anchor.Wallet,
   program : anchor.Program,
@@ -378,20 +393,14 @@ const fetchRelevantMints = async (
   const ingredientUrl = recipe.ingredients.replace(/\0/g, '');
   const ingredientList = await (await fetch(ingredientUrl)).json();
 
-  console.log('Finished ingerdients fetch', getUnixTs() - startTime);
+  console.log('Finished ingredients fetch', getUnixTs() - startTime);
 
   if (recipe.roots.length !== ingredientList.length) {
     throw new Error(`Recipe has a different number of ingredient lists and merkle hashes. Bad configuration`);
   }
 
-  const onChainIngredients = await getOnChainIngredients(
-        connection, recipeKey, anchorWallet.publicKey, ingredientList);
-
-  console.log('Finished on-chain ingredients fetch', getUnixTs() - startTime);
-
-  const relevantMints = await getRelevantTokenAccounts(
-        connection, anchorWallet.publicKey, ingredientList);
-  console.log(relevantMints);
+  const [onChainIngredients, relevantMints] = await fetchWalletIngredients(
+      connection, recipeKey, anchorWallet.publicKey, ingredientList);
 
   console.log('Finished relevant tokens fetch', getUnixTs() - startTime);
 
@@ -520,26 +529,31 @@ export const FireballView = (
   );
 
   React.useEffect(() => {
-    if (!connection || !anchorWallet || !program) return;
+    if (!anchorWallet) {
+      setIngredients([])
+      setRelevantMints([]);
+      setMatchingIndices({});
+      return;
+    }
+    if (!connection || !program) return;
     setLoading(true);
     try {
       const wrap = async () => {
         try {
-          setRecipeYields(await getRecipeYields(connection, recipeKey));
-        } catch (err) {
-          console.log('Fetch yield preview err', err);
-          setLoading(false);
-          return;
-        }
-        try {
-          const { ingredientList, onChainIngredients, relevantMints } =
-              await fetchRelevantMints(anchorWallet, program, connection, recipeKey);
+          const recipeYieldsPromise = getRecipeYields(connection, recipeKey);
+          const relevantMintsPromise = fetchRelevantMints(
+              anchorWallet, program, connection, recipeKey);
+
+          const [recipeYields, { ingredientList, onChainIngredients, relevantMints }] =
+              await Promise.all([recipeYieldsPromise, relevantMintsPromise])
+
           if (ingredientList.length !== numIngredients) {
             notify({
               message: `Mismatching on-chain ingredients list`,
               description: `Expected ${numIngredients} got ${ingredientList.length}`,
             });
           }
+          setRecipeYields(recipeYields);
           setIngredientList(ingredientList);
           setIngredients(onChainIngredients)
           setRelevantMints(relevantMints);
@@ -556,7 +570,7 @@ export const FireballView = (
       console.log('Key decode err', err);
       setLoading(false);
     }
-  }, [anchorWallet, !program, !connection, recipeKey.toBase58()]);
+  }, [anchorWallet?.publicKey, !program, !connection, recipeKey.toBase58()]);
 
 
   const addIngredient = async (e : React.SyntheticEvent, ingredient: string, mint: PublicKey) => {
@@ -835,12 +849,11 @@ export const FireballView = (
       throw new Error(`One of the dish changes failed. See console logs`);
     }
 
-    setIngredients(await getOnChainIngredients(
-          connection, recipeKey, anchorWallet.publicKey, ingredientList));
+    const [ingredients, relevantMints] = await fetchWalletIngredients(
+        connection, recipeKey, anchorWallet.publicKey, ingredientList);
 
-    setRelevantMints(await getRelevantTokenAccounts(
-          connection, anchorWallet.publicKey, ingredientList));
-
+    setIngredients(ingredients);
+    setRelevantMints(relevantMints);
     setChangeList([]);
     setMatchingIndices({});
   };
@@ -981,12 +994,11 @@ export const FireballView = (
       throw new Error(`One of the mint instructions failed. See console logs`);
     }
 
-    setIngredients(await getOnChainIngredients(
-          connection, recipeKey, anchorWallet.publicKey, ingredientList));
+    const [ingredients, relevantMints] = await fetchWalletIngredients(
+        connection, recipeKey, anchorWallet.publicKey, ingredientList);
 
-    setRelevantMints(await getRelevantTokenAccounts(
-          connection, anchorWallet.publicKey, ingredientList));
-
+    setIngredients(ingredients);
+    setRelevantMints(relevantMints);
     setChangeList([]);
     setMatchingIndices({});
   };
@@ -1082,6 +1094,7 @@ export const FireballView = (
                     marginBottom: "10px",
                     background: "#4E2946",
                     color: "white",
+                    overflow: "visible",
                   }}
                 />
                 <Button
