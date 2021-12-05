@@ -1,20 +1,33 @@
-import { useMeta } from '@oyster/common';
-import React, { FC } from 'react';
+import React from 'react';
 
-export const LoaderProvider: FC = ({ children }) => {
-  const { isLoading } = useMeta();
+export const LoadingContext = React.createContext({});
 
+export const LoaderProvider: React.FC = ({ children }) => {
+  const [loading, setLoading] = React.useState(false);
   return (
-    <>
-      <div className={`loader-container ${isLoading ? 'active' : ''}`}>
+    <LoadingContext.Provider
+      value={{
+        loading,
+        setLoading,
+      }}
+    >
+      <div className={`loader-container ${loading ? 'active' : ''}`}>
         <div className="loader-block">
           <div className="loader-title">loading</div>
           <Spinner />
         </div>
       </div>
       {children}
-    </>
+    </LoadingContext.Provider>
   );
+};
+
+export const useLoading = (): any => {
+  const context = React.useContext(LoadingContext);
+  if (!context) {
+    throw new Error(`useLoading must be used with a LoadingProvider`);
+  }
+  return context;
 };
 
 export const Spinner = () => {

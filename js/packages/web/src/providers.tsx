@@ -20,9 +20,7 @@ export const Providers: FC = ({ children }) => {
           <SPLTokenListProvider>
             <CoingeckoProvider>
               <LoaderProvider>
-                <ConfettiProvider>
-                  <AppLayout>{children}</AppLayout>
-                </ConfettiProvider>
+                <AppLayout>{children}</AppLayout>
               </LoaderProvider>
             </CoingeckoProvider>
           </SPLTokenListProvider>

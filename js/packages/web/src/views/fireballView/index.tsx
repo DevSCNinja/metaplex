@@ -63,6 +63,9 @@ import {
 import BN from 'bn.js';
 import { capitalize } from 'lodash';
 
+import {
+  useLoading,
+} from '../../components/Loader';
 import useWindowDimensions from '../../utils/layout';
 import {
   getAssociatedTokenAccount,
@@ -515,19 +518,7 @@ export const FireballView = (
     );
   }, 0);
 
-  const [loading, setLoading] = React.useState(false);
-  const loadingProgress = () => (
-    <CircularProgress
-      size={24}
-      sx={{
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        marginTop: '-12px',
-        marginLeft: '-12px',
-      }}
-    />
-  );
+  const { loading, setLoading } = useLoading();
 
   React.useEffect(() => {
     if (!anchorWallet) {
@@ -812,6 +803,9 @@ export const FireballView = (
     const setup = await buildDishChanges(e, changeList);
     console.log(setup);
     if (setup.length === 0) {
+      notify({
+        message: `No Dish changes found`,
+      });
       return;
     }
 
@@ -1085,7 +1079,10 @@ export const FireballView = (
       }}
     >
       <p className={"text-title"}>Collectoooooor NFTs</p>
-      <p className={"text-subtitle"}>You can burn 13 NFTs to redeem an exclusive city.</p>
+      <p className={"text-subtitle"}>
+        You can burn 13 NFTs to redeem an exclusive city edition. Click 'MINT' to burn
+        the first 13 ingredients found in your wallet or pick and choose below!
+      </p>
       <ImageList cols={cols}>
         {recipes.map((r, idx) => {
           const recipeYieldAvailable = recipeYields.find(y => y.mint.equals(r.mint));
@@ -1196,15 +1193,20 @@ export const FireballView = (
           </p>
         </div>
       </div>
-      <p className={"text-subtitle"}>The NFTs you have collected so far.</p>
-      <Tooltip title="Manually add or remove Ingredients by selecting Mints and submitting here">
+      <p className={"text-subtitle"}>The NFTs you have collected.</p>
+      <Tooltip
+        title="Manually add or remove Ingredients by selecting Mints and submitting here"
+        style={{
+          maxWidth: "200px",
+        }}
+      >
         <span>
         <Button
           size="small"
           variant="outlined"
           style={{
+            width: "100%",
             borderRadius: "30px",
-            maxWidth: "200px",
             height: "30px",
             color: topDisabled ? "gray" : "white",
             borderColor: topDisabled ? "gray" : "white",
