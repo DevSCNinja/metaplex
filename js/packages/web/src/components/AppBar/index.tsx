@@ -32,6 +32,22 @@ const DefaultActions = ({ vertical = false }: { vertical?: boolean }) => {
   );
 };
 
+const BuyButton = () => {
+  return (
+    <Button
+      className="modal-button-default"
+      component="label"
+    >
+      <a
+        href="https://solanart.io/collections/thecollectoooooor"
+        target="_blank"
+      >
+        Buy on Solanart
+      </a>
+    </Button>
+  );
+}
+
 const MetaplexMenu = () => {
   const { width } = useWindowDimensions();
   const [isModalVisible, setIsModalVisible] = useState<boolean>(false);
@@ -41,7 +57,7 @@ const MetaplexMenu = () => {
     return (
       <>
         <Modal
-          title={<img src={'/metaplex-logo.svg'} />}
+          title={<p className={"colectoooooor-logo"}>COLLECTOOOOOR</p>}
           visible={isModalVisible}
           footer={null}
           className={'modal-box'}
@@ -65,10 +81,7 @@ const MetaplexMenu = () => {
                     onClick={() => setIsModalVisible(false)}
                     className="secondary-btn"
                   />
-                  <HowToBuyModal
-                    onClick={() => setIsModalVisible(false)}
-                    buttonClassName="black-btn"
-                  />
+                  <BuyButton />
                 </div>
               ) : (
                 <>
@@ -119,9 +132,7 @@ export const AppBar = () => {
           <MetaplexMenu />
         </div>
         <div className="app-right">
-          {!connected && (
-            <HowToBuyModal buttonClassName="modal-button-default" />
-          )}
+          {!connected && <BuyButton />}
           {!connected && (
             <ConnectButton style={{ height: 48 }} allowWalletChange />
           )}
