@@ -813,7 +813,8 @@ export const FireballView = (
 
     const instrsPerTx = 2; // TODO: adjust based on proof size...
     const chunked = chunks(setup, instrsPerTx);
-    const passed = await Connection.sendTransactions(
+    let failed = false;
+    await Connection.sendTransactions(
       program.provider.connection,
       anchorWallet,
       chunked,
@@ -834,13 +835,12 @@ export const FireballView = (
       // failure callback
       (reason: string, ind: number) => {
         console.log(`Dish Changes failed on ${ind}: ${reason}`);
+        failed = true;
         return true;
       },
     );
 
-    console.log(passed);
-
-    if (passed !== chunked.length) {
+    if (failed) {
       throw new Error(`One of the dish changes failed. See console logs`);
     }
 
@@ -954,11 +954,14 @@ export const FireballView = (
 
     const dishChanges = await buildDishChanges(e, changeList);
     const txs = [...dishChanges.map(ix => [ix]), setup];
-    const passed = await Connection.sendTransactions(
+    const signers = new Array<Keypair[]>(txs.length).fill([]);
+    signers[signers.length - 1] = [newMint];
+    let failed = false;
+    await Connection.sendTransactions(
       program.provider.connection,
       anchorWallet,
       txs,
-      new Array<Keypair[]>(txs.length).fill([]),
+      signers,
       Connection.SequenceType.StopOnFailure,
       'singleGossip',
       // success callback
@@ -979,15 +982,16 @@ export const FireballView = (
       // failure callback
       (reason: string, ind: number) => {
         console.log(`Mint failed on ${ind}: ${reason}`);
+        failed = true;
         return true;
       },
     );
 
-    console.log(passed);
-
-    if (passed !== txs.length) {
+    if (failed) {
       throw new Error(`One of the mint instructions failed. See console logs`);
     }
+
+    setRecipeYields(await getRecipeYields(connection, recipeKey));
 
     const [ingredients, relevantMints] = await fetchWalletIngredients(
         connection, recipeKey, anchorWallet.publicKey, ingredientList);
