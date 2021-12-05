@@ -37,6 +37,9 @@ const BuyButton = () => {
     <Button
       className="modal-button-default"
       component="label"
+      style={{
+        marginRight: "0px"
+      }}
     >
       <a
         href="https://solanart.io/collections/thecollectoooooor"
@@ -132,7 +135,7 @@ export const AppBar = () => {
           <MetaplexMenu />
         </div>
         <div className="app-right">
-          {!connected && <BuyButton />}
+          {<BuyButton />}
           {!connected && (
             <ConnectButton style={{ height: 48 }} allowWalletChange />
           )}

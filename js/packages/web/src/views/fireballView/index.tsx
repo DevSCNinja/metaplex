@@ -1195,7 +1195,7 @@ export const FireballView = (
       </div>
       <p className={"text-subtitle"}>The NFTs you have collected.</p>
       <Tooltip
-        title="Manually add or remove Ingredients by selecting Mints and submitting here"
+        title="Manually add or remove ingredients by selecting mints"
         style={{
           maxWidth: "200px",
         }}
