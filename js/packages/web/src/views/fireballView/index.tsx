@@ -1094,7 +1094,7 @@ export const FireballView = (
                     marginBottom: "10px",
                     background: "#4E2946",
                     color: "white",
-                    overflow: "visible",
+                    lineHeight: "normal",
                   }}
                 />
                 <Button
