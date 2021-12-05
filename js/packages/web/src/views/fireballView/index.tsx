@@ -483,14 +483,19 @@ export const FireballView = (
 
   const recipes = [ // TODO: metadata link to find editions remaining
     {
-      image: "https://www.arweave.net/EYE3jfEKhzj6vgs1OtrNe7B99SUi6X-iN4dQoOeM3-U?ext=gif",
-      name: "city 1",
-      mint: new PublicKey("8s2RPB1vEy5yTbYa85Y8QR1ATi7PgDBpuCFVNYv4be7s"),
+      image: "https://4udejsogpoo3ekjmiigzgcgzyebntokt6oqavvw5vsv77xpvp5eq.arweave.net/5QZEycZ7nbIpLEINkwjZwQLZuVPzoArW3ayr_931f0k/?ext=gif",
+      name: "red moon city",
+      mint: new PublicKey("2gFFVAaFQe36FTBevz2cQHivXUfPse53dBSN65e96HND"),
     },
     {
-      image: "https://www.arweave.net/25iaa4uK7W56ga9BXz37ZezRcCWx5BC442PBqtNyVPk?ext=gif",
-      name: "city 2",
-      mint: new PublicKey("jQ9LPzPpK1cdsC3qK8iZGWWasCALPZ6aCL5qD7GPHK7"),
+      image: "https://pvibl5h2u52szj5hq5h4pselyzhjsckz53oziusek2insn4f75va.arweave.net/fVAV9PqndSynp4dPx8iLxk6ZCVnu3ZRSRFaQ2TeF_2o/?ext=gif",
+      name: "blue moon beach",
+      mint: new PublicKey("9vpjkWrc4GSW98HgrTZaknHKtxdrx7Cq6P6is4A7uwE1"),
+    },
+    {
+      image: "https://u2pr74tvgu2uxgvscxk22my5b6o5esatoqgcv5npyfaaef37tv3a.arweave.net/pp8f8nU1NUuashXVrTMdD53SSBN0DCr1r8FAAhd_nXY/?ext=gif",
+      name: "once in a solana moon",
+      mint: new PublicKey("ENSkFqG4unsRq6bFa17vngQ8rfxsVdcvJJijyHdFi2XQ"),
     },
   ];
 
