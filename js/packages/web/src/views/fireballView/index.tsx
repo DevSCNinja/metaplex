@@ -1086,9 +1086,8 @@ export const FireballView = (
                   )}
                   position="below"
                 />
-                <Chip
-                  label={recipeYieldAvailable ? `${recipeYieldAvailable.remaining[0]}/${recipeYieldAvailable.remaining[1]} remaining`
-                  : 'None remaining'}
+                {recipeYieldAvailable && <Chip
+                  label={`${recipeYieldAvailable.remaining[0]}/${recipeYieldAvailable.remaining[1]} remaining`}
                   size="small"
                   style={{
                     marginBottom: "10px",
@@ -1096,7 +1095,7 @@ export const FireballView = (
                     color: "white",
                     lineHeight: "normal",
                   }}
-                />
+                />}
                 <Button
                   variant="outlined"
                   style={{
