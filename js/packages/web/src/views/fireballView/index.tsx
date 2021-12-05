@@ -519,7 +519,7 @@ export const FireballView = (
     />
   );
 
-  React.useMemo(() => {
+  React.useEffect(() => {
     if (!connection || !anchorWallet || !program) return;
     setLoading(true);
     try {
@@ -556,7 +556,7 @@ export const FireballView = (
       console.log('Key decode err', err);
       setLoading(false);
     }
-  }, [anchorWallet?.publicKey, !program, !connection, recipeKey.toBase58()]);
+  }, [anchorWallet, !program, !connection, recipeKey.toBase58()]);
 
 
   const addIngredient = async (e : React.SyntheticEvent, ingredient: string, mint: PublicKey) => {
@@ -1157,6 +1157,7 @@ export const FireballView = (
       </div>
       <p className={"text-subtitle"}>The NFTs you have collected so far.</p>
       <Tooltip title="Manually add or remove Ingredients by selecting Mints and submitting here">
+        <span>
         <Button
           size="small"
           variant="outlined"
@@ -1188,6 +1189,7 @@ export const FireballView = (
         >
           Submit Changes
         </Button>
+        </span>
       </Tooltip>
 
       <ImageList cols={cols}>
