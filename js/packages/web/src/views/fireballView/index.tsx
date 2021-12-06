@@ -1093,9 +1093,9 @@ export const FireballView = (
   return (
     <Stack
       spacing={1}
-      style={{
-        width: columnWidth * cols + columnsGap * (cols - 1),
-      }}
+      // style={{
+      //   width: columnWidth * cols + columnsGap * (cols - 1),
+      // }}
     >
       <p className={"text-title"}>Collectoooooor NFTs</p>
       <p className={"text-subtitle"}>
@@ -1110,7 +1110,7 @@ export const FireballView = (
               key={idx}
               style={{
                 padding: "20px",
-                width: columnWidth,
+                minWidth: columnWidth,
               }}
             >
               <ImageListItem>
@@ -1282,7 +1282,7 @@ export const FireballView = (
               key={idx}
               style={{
                 padding: "20px",
-                width: columnWidth,
+                minWidth: columnWidth,
               }}
             >
               <ImageListItem>
