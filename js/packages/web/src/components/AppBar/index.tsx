@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Button, Menu, Modal } from 'antd';
+import { Button, Menu, Modal, Popover } from 'antd';
 import { useWallet } from '@solana/wallet-adapter-react';
 import useWindowDimensions from '../../utils/layout';
 import { MenuOutlined } from '@ant-design/icons';
@@ -34,19 +34,61 @@ const DefaultActions = ({ vertical = false }: { vertical?: boolean }) => {
 
 const BuyButton = () => {
   return (
-    <Button
-      className="modal-button-default"
-      style={{
-        marginRight: "0px"
-      }}
+    <Popover
+      trigger="click"
+      placement="bottomRight"
+      content={(
+        <div
+          style={{
+            width: 250,
+          }}
+        >
+          <h5
+            style={{
+              color: 'rgba(255, 255, 255, 0.7)',
+              letterSpacing: '0.02em',
+            }}
+          >
+            MARKETPLACES
+          </h5>
+          <Button
+            className="modal-button-default"
+            style={{
+              width: "100%"
+            }}
+          >
+            <a
+              href="https://solanart.io/collections/thecollectoooooor"
+              target="_blank"
+            >
+              Solanart
+            </a>
+          </Button>
+          <Button
+            className="modal-button-default"
+            style={{
+              width: "100%"
+            }}
+          >
+            <a
+              href="https://magiceden.io/marketplace/collectoooooor"
+              target="_blank"
+            >
+              Magic Eden
+            </a>
+          </Button>
+        </div>
+      )}
     >
-      <a
-        href="https://solanart.io/collections/thecollectoooooor"
-        target="_blank"
+      <Button
+        className="wallet-key"
+        style={{
+          marginRight: "10px",
+        }}
       >
-        Buy on Solanart
-      </a>
-    </Button>
+        Buy
+      </Button>
+    </Popover>
   );
 }
 
