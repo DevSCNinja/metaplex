@@ -362,7 +362,7 @@ const fetchWalletIngredients = async (
   connection : RPCConnection,
   recipeKey : PublicKey,
   walletKey : PublicKey,
-  ingredientList: array<any>,
+  ingredientList: Array<any>,
 ) => {
   const onChainIngredientsPromise = getOnChainIngredients(
       connection, recipeKey, walletKey, ingredientList);
@@ -420,10 +420,7 @@ enum IngredientView {
   recover = 'recover',
 }
 
-export type RedeemProps = {};
-
 export const FireballView = (
-  props : RouteComponentProps<RedeemProps>,
 ) => {
   const { endpoint } = useConnectionConfig();
   const connection = React.useMemo(
@@ -517,7 +514,7 @@ export const FireballView = (
 
   const numIngredients = Object.keys(ingredients).length;
   const collected = Object.keys(ingredients).reduce((acc, ingredient) => {
-    return acc + !!(
+    return acc + +!!(
       dishIngredients.find(c => c.ingredient === ingredient)
       || relevantMints.find(c => c.ingredient === ingredient)
     );
@@ -541,8 +538,17 @@ export const FireballView = (
           const relevantMintsPromise = fetchRelevantMints(
               anchorWallet, program, connection, recipeKey);
 
-          const [recipeYields, { ingredientList, onChainIngredients, relevantMints }] =
+          const [recipeYields, relevantMintsRes] =
               await Promise.all([recipeYieldsPromise, relevantMintsPromise])
+
+          if (!recipeYields || !relevantMintsRes) {
+            notify({
+              message: `Failed fetching wallet mints`,
+            });
+            return;
+          }
+
+          const { ingredientList, onChainIngredients, relevantMints } = relevantMintsRes;
 
           if (ingredientList.length !== numIngredients) {
             notify({
@@ -661,7 +667,7 @@ export const FireballView = (
     setChangeList(newList);
   };
 
-  const buildDishChanges = async (e : React.SyntheticEvent, changeList : array<any>) => {
+  const buildDishChanges = async (e : React.SyntheticEvent, changeList : Array<any>) => {
     e.preventDefault();
     if (!anchorWallet || !program) {
       throw new Error(`Wallet or program is not connected`);
@@ -805,6 +811,10 @@ export const FireballView = (
 
 
   const submitDishChanges = async (e : React.SyntheticEvent) => {
+    if (!program || !anchorWallet) {
+      // duplicated in buildDishChanges...
+      throw new Error(`Wallet or program is not connected`);
+    }
     const setup = await buildDishChanges(e, changeList);
     console.log(setup);
     if (setup.length === 0) {
@@ -861,7 +871,7 @@ export const FireballView = (
   const mintRecipe = async (
     e : React.SyntheticEvent,
     masterMintKey : PublicKey,
-    changeList : array<any>,
+    changeList : Array<any>,
   ) => {
     // TODO: less hacky. let the link click go through
     if ((e.target as any).href !== undefined) {
@@ -1309,7 +1319,7 @@ export const FireballView = (
                           )}
                         </div>
                       )
-                      : <p sx={{ fontFamily: 'Monospace' }}>{"\u00A0"}</p>
+                      : <p style={{ fontFamily: 'Monospace' }}>{"\u00A0"}</p>
                   }
                   actionIcon={
                     <div style={{ paddingTop: "6px", paddingBottom: "12px" }}>

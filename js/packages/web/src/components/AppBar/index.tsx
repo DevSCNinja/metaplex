@@ -36,7 +36,6 @@ const BuyButton = () => {
   return (
     <Button
       className="modal-button-default"
-      component="label"
       style={{
         marginRight: "0px"
       }}

@@ -357,8 +357,7 @@ programCommand('burn_crank')
           );
         }
       ));
-      const storeAccounts = await connection.getMultipleAccountsInfo(
-          storeKeysAndBumps.map(s => s[0]));
+      const storeAccounts : any = [];
 
       // TODO: separate on overflow
       const instrs : Array<[TransactionInstruction, PublicKey]> = [];
