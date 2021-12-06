@@ -1089,7 +1089,13 @@ export const FireballView = (
   };
   const cols = sizedColumns(width);
   const topDisabled = !anchorWallet || !program || loading;
-  // TODO: width sizing
+
+  const imgBorderStyle = {
+    borderRadius: "5px",
+    padding: 2,
+    backgroundColor: "#888",
+  };
+
   return (
     <Stack
       spacing={1}
@@ -1116,11 +1122,7 @@ export const FireballView = (
               <ImageListItem>
                 <img
                   src={r.image}
-                  style={{
-                    borderRadius: "2px",
-                    padding: 2,
-                    backgroundColor: "white",
-                  }}
+                  style={imgBorderStyle}
                 />
                 <ImageListItemBar
                   title={r.name}
@@ -1289,9 +1291,9 @@ export const FireballView = (
                 <img
                   src={ingredients[ingredient]}
                   style={{
-                    borderRadius: "2px",
-                    padding: inBatch ? 10 : 2,
-                    backgroundColor: dishIngredient ? "#2D1428" : "white",
+                    ...imgBorderStyle,
+                    padding: inBatch ? 10 : imgBorderStyle.padding,
+                    backgroundColor: dishIngredient ? "#2D1428" : imgBorderStyle.backgroundColor,
                     ...imgStyle,
                   }}
                 />
