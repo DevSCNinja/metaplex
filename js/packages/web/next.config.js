@@ -1,7 +1,7 @@
 const withPlugins = require('next-compose-plugins');
 const withLess = require('next-with-less');
 
-const assetPrefix = process.env.ASSET_PREFIX || '';
+const assetPrefix = '/collectoooooor/' || '';
 
 const plugins = [
   [
@@ -23,6 +23,7 @@ const plugins = [
 
 module.exports = withPlugins(plugins, {
   assetPrefix,
+  basePath: '/collectoooooor',
   reactStrictMode: true,
   eslint: {
     ignoreDuringBuilds: true,

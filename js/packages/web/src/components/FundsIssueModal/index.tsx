@@ -19,7 +19,7 @@ export const FundsIssueModal = (props: {
         footer={null}
         onCancel={props.onClose}
         className={"fundsissue"}
-        closeIcon={<img src={'/modals/close.svg'} />}
+        closeIcon={<img src={'/collectoooooor/modals/close.svg'} />}
       >
         <b className={"issue-title"}>Insufficient funds</b>
         <div className="card-bid-info">
