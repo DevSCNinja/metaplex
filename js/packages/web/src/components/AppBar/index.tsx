@@ -154,12 +154,11 @@ const MetaplexMenu = () => {
 };
 
 export const LogoLink = () => {
-  return null;
-  // return (
-  //   <Link to={`/`}>
-  //     <p className={"collectoooooor-logo"}>COLLECTOOOOOR</p>
-  //   </Link>
-  // );
+  return (
+    <Link to={`/`}>
+      <p className={"collectoooooor-logo"}>COLLECTOOOOOR</p>
+    </Link>
+  );
 };
 
 export const AppBar = () => {
@@ -171,12 +170,12 @@ export const AppBar = () => {
         <MetaplexMenu />
       </div>
       <div id="desktop-navbar">
-        <div className="app-left">
+        <div className="app-left" style={{ marginLeft: 0 }}>
           <LogoLink />
           &nbsp;&nbsp;&nbsp;
           <MetaplexMenu />
         </div>
-        <div className="app-right">
+        <div className="app-right" style={{ marginRight: 0 }}>
           {<BuyButton />}
           {!connected && (
             <ConnectButton style={{ height: 48 }} allowWalletChange />
