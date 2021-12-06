@@ -1103,7 +1103,6 @@ export const FireballView = (
       //   width: columnWidth * cols + columnsGap * (cols - 1),
       // }}
     >
-      <p className={"text-title"}>Collectoooooor NFTs</p>
       <p className={"text-subtitle"}>
         You can burn 13 NFTs to redeem an exclusive city edition. Click 'MINT' to burn
         the first 13 ingredients found in your wallet or pick and choose below!

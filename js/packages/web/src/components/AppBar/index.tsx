@@ -112,11 +112,12 @@ const MetaplexMenu = () => {
 };
 
 export const LogoLink = () => {
-  return (
-    <Link to={`/`}>
-      <p className={"collectoooooor-logo"}>COLLECTOOOOOR</p>
-    </Link>
-  );
+  return null;
+  // return (
+  //   <Link to={`/`}>
+  //     <p className={"collectoooooor-logo"}>COLLECTOOOOOR</p>
+  //   </Link>
+  // );
 };
 
 export const AppBar = () => {
