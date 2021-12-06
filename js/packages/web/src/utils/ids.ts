@@ -6,7 +6,7 @@ export const AR_SOL_HOLDER_ID = new PublicKey(
 );
 
 export const FIREBALL_PROGRAM_ID = new PublicKey(
-  '9R4RuSGk3raAVf6TJ7o1ixywcDW89p1MSo2ns9LEBXNK',
+  'fireo2tXc3j1Es8GjsGUf6whnEPte8oUvdDz4U2zN9n',
 );
 
 export const FIREBALL_PREFIX = Buffer.from('fireball');
