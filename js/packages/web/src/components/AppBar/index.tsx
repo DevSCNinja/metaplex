@@ -156,7 +156,7 @@ const MetaplexMenu = () => {
 export const LogoLink = () => {
   return (
     <Link to={`/`}>
-      <p className={"collectoooooor-logo"}>COLLECTOOOOOR</p>
+      <p className={"collectoooooor-logo"}>COLLECTOOOOOOR</p>
     </Link>
   );
 };
