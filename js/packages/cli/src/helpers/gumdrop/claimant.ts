@@ -187,7 +187,7 @@ export const getCreatorTokenAccount = async (
   walletKey: PublicKey,
   connection: RPCConnection,
   mintKey: PublicKey,
-  totalClaim: number,
+  totalClaim: BN,
 ) => {
   const creatorTokenKey = await getTokenWallet(walletKey, mintKey);
   const creatorTokenAccount = await connection.getAccountInfo(creatorTokenKey);
@@ -202,7 +202,7 @@ export const getCreatorTokenAccount = async (
   const creatorTokenInfo = AccountLayout.decode(
     Buffer.from(creatorTokenAccount.data),
   );
-  if (new BN(creatorTokenInfo.amount, 8, 'le').toNumber() < totalClaim) {
+  if (new BN(creatorTokenInfo.amount, 8, 'le').lt(totalClaim)) {
     throw new Error(`Creator token account does not have enough tokens`);
   }
   return creatorTokenKey;
@@ -245,7 +245,7 @@ export const validateTransferClaims = async (
     if (c.amount === 0) throw new Error(`Claimant ${idx} amount is 0`);
   });
 
-  const total = claimants.reduce((acc, c) => acc + c.amount, 0);
+  const total = claimants.reduce((acc, c) => acc.add(new BN(c.amount)), new BN(0));
   const mint = await getMintInfo(connection, mintStr);
   const source = await getCreatorTokenAccount(
     walletKey,
@@ -274,22 +274,22 @@ export const validateCandyClaims = async (
     if (c.amount === 0) throw new Error(`Claimant ${idx} amount is 0`);
   });
 
-  const total = claimants.reduce((acc, c) => acc + c.amount, 0);
+  const total = claimants.reduce((acc, c) => acc.add(new BN(c.amount)), new BN(0));
   const configKey = await getCandyConfig(connection, candyConfig);
   const [candyMachineKey] = await getCandyMachineAddress(configKey, candyUuid);
 
   const candyMachine = await getCandyMachine(connection, candyMachineKey);
 
   const remaining =
-    candyMachine.data.itemsAvailable.toNumber() -
-    candyMachine.itemsRedeemed.toNumber();
+    candyMachine.data.itemsAvailable.sub(
+        candyMachine.itemsRedeemed);
   if (isNaN(remaining)) {
     // TODO: should this have an override?
     throw new Error(
       `Could not calculate how many candy machine items are remaining`,
     );
   }
-  if (remaining < total) {
+  if (remaining.lt(total)) {
     throw new Error(
       `Distributor is allocated more mints (${total}) ` +
         `than the candy machine has remaining (${remaining})`,
@@ -360,7 +360,7 @@ export const validateEditionClaims = async (
     walletKey,
     connection,
     masterMint.key,
-    1, // just check that the creator has the master mint
+    new BN(1), // just check that the creator has the master mint
   );
 
   const masterEditionKey = await getMasterEdition(masterMint.key);
@@ -697,7 +697,7 @@ export const closeGumdrop = async (
       walletKey,
       connection,
       mint.key,
-      0,
+      new BN(0),
     );
     // distributor is about to be closed anyway so this is redundant but...
     instructions.push(

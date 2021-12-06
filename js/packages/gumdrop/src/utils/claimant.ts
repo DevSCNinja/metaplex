@@ -184,18 +184,14 @@ export const validateCandyClaims = async (
     if (c.amount === 0) throw new Error(`Claimant ${idx} amount is 0`);
   });
 
-  const total = claimants.reduce((acc, c) => acc + c.amount, 0);
+  const total = claimants.reduce((acc, c) => acc.add(new BN(c.amount)), new BN(0));
   const configKey = await getCandyConfig(connection, candyConfig);
   const [candyMachineKey, ] = await getCandyMachineAddress(configKey, candyUuid);
 
   const candyMachine = await getCandyMachine(connection, candyMachineKey);
 
-  const remaining = candyMachine.data.itemsAvailable.toNumber() - candyMachine.itemsRedeemed.toNumber();
-  if (isNaN(remaining)) {
-    // TODO: should this have an override?
-    throw new Error(`Could not calculate how many candy machine items are remaining`);
-  }
-  if (remaining < total) {
+  const remaining = candyMachine.data.itemsAvailable.sub(candyMachine.itemsRedeemed);
+  if (remaining.lt(total)) {
     throw new Error(`Distributor is allocated more mints (${total}) `
                   + `than the candy machine has remaining (${remaining})`);
   }
