@@ -469,7 +469,7 @@ export const FireballView = (
     wrap();
   }, [anchorWallet]);
 
-  const recipeKey = new PublicKey("X24ffyuJG4GRfLiXr2C4T1NSm9ovHZdGZUnqe3iY8CA");
+  const recipeKey = new PublicKey("HHNbiYDEAJ2PXv5GZXXrn2Ypi1s8CfZK4asgnpg6MSUi");
 
   const [recipeYields, setRecipeYields] = React.useState<Array<RecipeYield>>([]);
   const [relevantMints, setRelevantMints] = React.useState<Array<RelevantMint>>([]);
