@@ -121,14 +121,14 @@ export const getCandyConfig = async (
   try {
     configKey = new PublicKey(config);
   } catch (err) {
-    throw new Error(`Invalid config key ${err}`);
+    throw new Error(`Invalid config key ${config}: ${err}`);
   }
   const configAccount = await connection.getAccountInfo(configKey);
   if (configAccount === null) {
-    throw new Error(`Could not fetch config`);
+    throw new Error(`Could not fetch config ${config}`);
   }
   if (!configAccount.owner.equals(CANDY_MACHINE_PROGRAM_ID)) {
-    throw new Error(`Invalid config owner ${configAccount.owner.toBase58()}`);
+    throw new Error(`Invalid config owner ${configAccount.owner.toBase58()}. Expected ${CANDY_MACHINE_PROGRAM_ID.toBase58()}`);
   }
   return configKey;
 };
@@ -147,7 +147,7 @@ export const getCandyMachine = async (
   }
   const candyMachineAccount = await connection.getAccountInfo(candyMachineKey);
   if (candyMachineAccount === null) {
-    throw new Error(`Could not fetch candy machine`);
+    throw new Error(`Could not fetch candy machine at ${candyMachineKey.toBase58()}`);
   }
   return candyMachineCoder.accounts.decode(
     'CandyMachine',
@@ -163,18 +163,18 @@ export const getMintInfo = async (
   try {
     mintKey = new PublicKey(mint);
   } catch (err) {
-    throw new Error(`Invalid mint key ${err}`);
+    throw new Error(`Invalid mint key ${mint}: ${err}`);
   }
   const mintAccount = await connection.getAccountInfo(mintKey);
   if (mintAccount === null) {
-    throw new Error(`Could not fetch mint`);
+    throw new Error(`Could not fetch mint ${mint}`);
   }
   if (!mintAccount.owner.equals(TOKEN_PROGRAM_ID)) {
     const mintOwner = mintAccount.owner.toBase58();
-    throw new Error(`Invalid mint owner ${mintOwner}`);
+    throw new Error(`Invalid mint owner ${mintOwner}. Expected ${TOKEN_PROGRAM_ID.toBase58()}`);
   }
   if (mintAccount.data.length !== MintLayout.span) {
-    throw new Error(`Invalid mint size ${mintAccount.data.length}`);
+    throw new Error(`Invalid mint size ${mintAccount.data.length}. Expected ${MintLayout.span}`);
   }
   const mintInfo = MintLayout.decode(Buffer.from(mintAccount.data));
   return {
@@ -498,7 +498,7 @@ export const buildGumdrop = async (
       try {
         claimant.secret = new PublicKey(claimant.handle);
       } catch (err) {
-        throw new Error(`Invalid claimant wallet handle ${err}`);
+        throw new Error(`Invalid claimant wallet handle ${claimant.handle}: ${err}`);
       }
     } else {
       const seeds = [
@@ -725,7 +725,7 @@ export const closeGumdrop = async (
     try {
       masterMintKey = new PublicKey(masterMint);
     } catch (err) {
-      throw new Error(`Invalid mint key ${err}`);
+      throw new Error(`Invalid mint key ${masterMint}: ${err}`);
     }
     const [distributorTokenKey] = await PublicKey.findProgramAddress(
       [
