@@ -6,7 +6,7 @@ import {
   SystemProgram,
   TransactionInstruction,
 } from '@solana/web3.js';
-import { AccountLayout, MintInfo, MintLayout, Token } from '@solana/spl-token';
+import { AccountLayout, MintInfo, MintLayout, Token, u64 } from '@solana/spl-token';
 import * as anchor from '@project-serum/anchor';
 import { sha256 } from 'js-sha256';
 import BN from 'bn.js';
@@ -354,7 +354,7 @@ export const validateEditionClaims = async (
     }
   });
 
-  const total = claimants.reduce((acc, c) => acc + c.amount, 0);
+  const total = claimants.reduce((acc, c) => acc.add(new BN(c.amount)), new BN(0));
   const masterMint = await getMintInfo(connection, masterMintStr);
   const masterTokenAccount = await getCreatorTokenAccount(
     walletKey,
@@ -384,12 +384,12 @@ export const validateEditionClaims = async (
       masterEdition.data.slice(10, 10 + 8),
       8,
       'le',
-    ).toNumber();
+    );
   }
   console.log('Max supply', maxSupply);
   console.log('Current supply', currentSupply);
 
-  if (maxSupply !== null && maxSupply < total) {
+  if (maxSupply !== null && maxSupply.lt(total)) {
     throw new Error(
       `Distributor is allocated more editions (${total}) ` +
         `than the master has total (${maxSupply})`,
@@ -414,7 +414,7 @@ export const validateEditionClaims = async (
     if (c.edition <= 0) {
       throw new Error(`Claimant ${idx} assigned invalid edition ${c.edition}`);
     }
-    if (maxSupply !== null && c.edition > maxSupply) {
+    if (maxSupply !== null && new BN(c.edition).gt(maxSupply)) {
       throw new Error(
         `Claimant ${idx} assigned edition ${c.edition} which is beyond the max supply`,
       );
@@ -604,7 +604,7 @@ export const buildGumdrop = async (
         distributor,
         walletKey,
         [],
-        claimInfo.total,
+        u64.fromBuffer(Buffer.from(claimInfo.total.toArray('le', 8))),
       ),
     );
   } else if (claimIntegration === 'candy') {
