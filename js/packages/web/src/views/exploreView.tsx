@@ -14,6 +14,7 @@ import {
 
 import {
   Connection as RPCConnection,
+  PublicKey,
 } from "@solana/web3.js";
 
 import {
@@ -26,7 +27,13 @@ import {
   envFor,
 } from '../utils/transactions';
 
-export type RecipeLink = Recipe & { link: string };
+export type RecipeLink = {
+  image: string,
+  name: string,
+  mint?: PublicKey,
+  link?: string,
+};
+
 
 export const ExploreView = (
   props: {
