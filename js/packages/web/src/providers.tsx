@@ -11,6 +11,7 @@ import { AppLayout } from './components/Layout';
 import { LoaderProvider } from './components/Loader';
 import { CoingeckoProvider } from './contexts/coingecko';
 import { SPLTokenListProvider } from './contexts/tokenList';
+import { AnchorContextProvider } from './contexts/anchorContext';
 
 export const Providers: FC = ({ children }) => {
   return (
@@ -20,7 +21,9 @@ export const Providers: FC = ({ children }) => {
           <SPLTokenListProvider>
             <CoingeckoProvider>
               <LoaderProvider>
-                <AppLayout>{children}</AppLayout>
+                <AnchorContextProvider>
+                  <AppLayout>{children}</AppLayout>
+                </AnchorContextProvider>
               </LoaderProvider>
             </CoingeckoProvider>
           </SPLTokenListProvider>

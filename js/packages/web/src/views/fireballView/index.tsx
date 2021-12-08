@@ -33,7 +33,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import {
   Connection as RPCConnection,
   Keypair,
-  PublicKey,
+    PublicKey,
   SystemProgram,
   TransactionInstruction,
   SYSVAR_RENT_PUBKEY,
@@ -57,15 +57,15 @@ import {
   SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from '@oyster/common';
-import {
-  useWallet,
-} from '@solana/wallet-adapter-react';
 import BN from 'bn.js';
 import { capitalize } from 'lodash';
 
 import {
   useLoading,
 } from '../../components/Loader';
+import {
+  useAnchorContext,
+} from '../../contexts/anchorContext';
 import useWindowDimensions from '../../utils/layout';
 import {
   getAssociatedTokenAccount,
@@ -427,47 +427,7 @@ export const FireballView = (
     () => new RPCConnection(endpoint.url, 'recent'),
     [endpoint]
   );
-  const wallet = useWallet();
-
-  const anchorWallet = React.useMemo(() => {
-    if (
-      !wallet ||
-      !wallet.publicKey ||
-      !wallet.signAllTransactions ||
-      !wallet.signTransaction
-    ) {
-      return;
-    }
-
-    return {
-      publicKey: wallet.publicKey,
-      signAllTransactions: wallet.signAllTransactions,
-      signTransaction: wallet.signTransaction,
-    } as anchor.Wallet;
-  }, [wallet]);
-
-  const [program, setProgram] = React.useState<anchor.Program | null>(null);
-
-  React.useEffect(() => {
-    if (!anchorWallet) {
-      return;
-    }
-
-    const wrap = async () => {
-      try {
-        const provider = new anchor.Provider(connection, anchorWallet, {
-          preflightCommitment: 'recent',
-        });
-        const idl = await anchor.Program.fetchIdl(FIREBALL_PROGRAM_ID, provider);
-
-        const program = new anchor.Program(idl, FIREBALL_PROGRAM_ID, provider);
-        setProgram(program);
-      } catch (err) {
-        console.error('Failed to fetch IDL', err);
-      }
-    };
-    wrap();
-  }, [anchorWallet]);
+  const { wallet, anchorWallet, program } = useAnchorContext();
 
   const recipeKey = new PublicKey("HHNbiYDEAJ2PXv5GZXXrn2Ypi1s8CfZK4asgnpg6MSUi");
 

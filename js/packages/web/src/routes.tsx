@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter, Route, Switch } from 'react-router-dom';
+import { BrowserRouter, Route, Switch } from 'react-router-dom';
 import { Providers } from './providers';
 import { AdminView } from './views/admin';
 import { FireballView} from "./views/fireballView";
@@ -7,14 +7,13 @@ import { FireballView} from "./views/fireballView";
 export function Routes() {
   return (
     <>
-      <HashRouter basename={'/'}>
+      <BrowserRouter basename={'/'}>
         <Providers>
           <Switch>
-            <Route exact path="/admin" component={() => <AdminView />} />
-            <Route path="/" component={() => <FireballView />} />
+            <Route path="/cities" component={() => <FireballView />} />
           </Switch>
         </Providers>
-      </HashRouter>
+      </BrowserRouter>
     </>
   );
 }
