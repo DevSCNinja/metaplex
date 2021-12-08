@@ -108,7 +108,7 @@ const MetaplexMenu = () => {
           closeIcon={
             <img
               onClick={() => setIsModalVisible(false)}
-              src={'/collectoooooor/modals/close.svg'}
+              src={'/modals/close.svg'}
             />
           }
         >
