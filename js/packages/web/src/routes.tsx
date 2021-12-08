@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Route, Switch } from 'react-router-dom';
+import { BrowserRouter, Route, Switch, withRouter } from 'react-router-dom';
 
 import { PublicKey } from '@solana/web3.js';
 
@@ -7,6 +7,21 @@ import { Providers } from './providers';
 import { AdminView } from './views/admin';
 import { FireballView } from "./views/fireballView";
 import { ExploreView } from "./views/exploreView";
+
+const ScrollToTop = ({ history }) => {
+  React.useEffect(() => {
+    const unlisten = history.listen(() => {
+      window.scrollTo(0, 0);
+    });
+    return () => {
+      unlisten();
+    }
+  }, []);
+
+  return null;
+}
+
+const RouterScrollToTop = withRouter(ScrollToTop);
 
 export function Routes() {
   const ingredients = {
@@ -62,6 +77,7 @@ export function Routes() {
     <>
       <BrowserRouter basename={'/'}>
         <Providers>
+          <RouterScrollToTop />
           <Switch>
             <Route path="/collectoooooor" component={
               () => (
