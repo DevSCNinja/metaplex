@@ -56,12 +56,12 @@ export const ExploreView = (
 
   // TODO: more robust
   const maxWidth = 960;
+  const outerPadding = 48 * 2;
   const columnsGap = 4;
   const maxColumns = 3;
   const columnWidth = (maxWidth - columnsGap * (maxColumns - 1)) / maxColumns;
 
   const tilePadding = 20;
-  const imageWidth = columnWidth - tilePadding * 2;
 
   const { width } = useWindowDimensions();
   const sizedColumns = (width : number) => {
@@ -78,7 +78,8 @@ export const ExploreView = (
     <Stack
       spacing={1}
       style={{
-        width: Math.min(maxWidth, width),
+        ...(width >= maxWidth + outerPadding ? { width: maxWidth } : {}),
+        // width: Math.min(maxWidth, width),
         marginLeft: 'auto',
         marginRight: 'auto',
       }}
@@ -93,7 +94,9 @@ export const ExploreView = (
               src={r.image}
               style={{
                 ...style,
-                width: imageWidth,
+                objectFit: 'cover',
+                width: '100%',
+                height: '100%',
               }}
             />
           );
@@ -112,7 +115,8 @@ export const ExploreView = (
                       to={r.link}
                       style={{
                         color: 'inherit',
-                        width: imageWidth,
+                        display: 'block',
+                        height: '100%',
                       }}
                     >
                       {yieldImage({})}
