@@ -426,12 +426,7 @@ export const FireballView = (
     ingredients : { [key: string]: string },
   }
 ) => {
-  const { endpoint } = useConnectionConfig();
-  const connection = React.useMemo(
-    () => new RPCConnection(endpoint.url, 'recent'),
-    [endpoint]
-  );
-  const { wallet, anchorWallet, program } = useAnchorContext();
+  const { connection, endpoint, wallet, anchorWallet, program } = useAnchorContext();
 
   const recipeKey = props.recipeKey;
   const recipes = props.recipeYields;

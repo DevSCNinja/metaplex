@@ -1,12 +1,29 @@
 import React from "react";
 
+import * as anchor from '@project-serum/anchor';
+import {
+  Connection as RPCConnection,
+} from "@solana/web3.js";
 import {
   useWallet,
 } from '@solana/wallet-adapter-react';
+import {
+  useConnectionConfig,
+} from '@oyster/common';
+
+import {
+  FIREBALL_PROGRAM_ID,
+} from '../utils/ids';
 
 export const AnchorContext = React.createContext({});
 
 export const AnchorContextProvider = ({ children = undefined } : { children : React.ReactNode }) => {
+  const { endpoint } = useConnectionConfig();
+  const connection = React.useMemo(
+    () => new RPCConnection(endpoint.url, 'recent'),
+    [endpoint]
+  );
+
   const wallet = useWallet();
   const anchorWallet = React.useMemo(() => {
     if (
@@ -51,6 +68,8 @@ export const AnchorContextProvider = ({ children = undefined } : { children : Re
   return (
     <AnchorContext.Provider
       value={{
+        endpoint,
+        connection,
         wallet,
         anchorWallet,
         program,

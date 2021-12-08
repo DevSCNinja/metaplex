@@ -27,7 +27,7 @@ export function Routes() {
 
   const ingredientSubset = (subset : Array<string>) => {
     return Object.keys(ingredients)
-      .filter(i => { console.log(i, subset); return subset.includes(i); })
+      .filter(i => { return subset.includes(i); })
       .reduce((acc, i) => ({ ...acc, [i]: ingredients[i] }), {})
       ;
   };
