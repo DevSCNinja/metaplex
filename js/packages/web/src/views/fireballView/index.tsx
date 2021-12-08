@@ -1032,9 +1032,10 @@ export const FireballView = (
       // }}
     >
       <p className={"text-subtitle"}>
-        You can burn {numIngredients} NFTs to redeem an exclusive city edition.
-        Click 'MINT' to burn the first {numIngredients} ingredients found in
-        your wallet or pick and choose below!
+        You can burn {numIngredients} NFTs to redeem {recipes.length > 1 ?
+        'one of these' : 'this'} limited edition{recipes.length > 1 ? 's' :
+        ''}. Click 'MINT' to burn the first {numIngredients} ingredients found
+        in your wallet or pick and choose below!
       </p>
       <ImageList cols={cols}>
         {recipes.map((r, idx) => {
