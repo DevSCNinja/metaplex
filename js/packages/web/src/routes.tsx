@@ -5,7 +5,8 @@ import { PublicKey } from '@solana/web3.js';
 
 import { Providers } from './providers';
 import { AdminView } from './views/admin';
-import { FireballView} from "./views/fireballView";
+import { FireballView } from "./views/fireballView";
+import { ExploreView } from "./views/exploreView";
 
 export function Routes() {
   const ingredients = {
@@ -22,6 +23,13 @@ export function Routes() {
     "ufo"                : "https://www.arweave.net/RNdstwUgOcXc7ognVkUoTjfoO2B3Kp2iZ34m86x6gzw?ext=gif",
     "umbrella duck"      : "https://www.arweave.net/-ApXoK_X3rlclU-rijXiqU4pm85tggLej4ax3HwsI3U?ext=gif",
     "whale"              : "https://www.arweave.net/e0VvxBG4VrAmli9v7E0d_JDxqbXohS50D7oExbtzVkg?ext=gif",
+  };
+
+  const ingredientSubset = (subset : Array<string>) => {
+    return Object.keys(ingredients)
+      .filter(i => { console.log(i, subset); return subset.includes(i); })
+      .reduce((acc, i) => ({ ...acc, [i]: ingredients[i] }), {})
+      ;
   };
 
   const cityYields = [
@@ -42,6 +50,14 @@ export function Routes() {
     },
   ];
 
+  const mightknightduckYields = [
+    {
+      image: "https://www.arweave.net/UMsb5j6OWgM-JUEeQqYej82kHFDw7GPGA2pzSUkRFdE?ext=gif",
+      name: "might knighty duck",
+      mint: new PublicKey("EcUyYeSNMdK6b9jKqMTznc24J8a9GvfbwgWurMbzmg3B"),
+    },
+  ];
+
   return (
     <>
       <BrowserRouter basename={'/'}>
@@ -53,6 +69,27 @@ export function Routes() {
                   recipeKey={new PublicKey("HHNbiYDEAJ2PXv5GZXXrn2Ypi1s8CfZK4asgnpg6MSUi")}
                   recipeYields={cityYields}
                   ingredients={ingredients}
+                />
+              )
+            } />
+            <Route path="/mightknightyduck" component={
+              () => (
+                <FireballView
+                  recipeKey={new PublicKey("2FH1WCZtKxzjRZ4EPJBR9beCLn4eAURUEkW22CS5fF3Z")}
+                  recipeYields={mightknightduckYields}
+                  ingredients={
+                    ingredientSubset(['duck with doughnut', 'normal duck'])
+                  }
+                />
+              )
+            } />
+            <Route path="/" component={
+              () => (
+                <ExploreView
+                  recipeYields={[
+                    ...cityYields.map(c => ({ ...c, link: "/collectoooooor" })),
+                    ...mightknightduckYields.map(c => ({ ...c, link: "/mightknightyduck" })),
+                  ]}
                 />
               )
             } />
