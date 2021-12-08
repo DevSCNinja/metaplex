@@ -56,17 +56,18 @@ export const ExploreView = (
 
   // TODO: more robust
   const maxWidth = 960;
-  const outerPadding = 48 * 2;
-  const columnsGap = 8;
-  const maxColumns = 2;
-  const columnWidth = (maxWidth - outerPadding - columnsGap * (maxColumns - 1)) / maxColumns;
+  const columnsGap = 4;
+  const maxColumns = 3;
+  const columnWidth = (maxWidth - columnsGap * (maxColumns - 1)) / maxColumns;
 
   const tilePadding = 20;
   const imageWidth = columnWidth - tilePadding * 2;
 
   const { width } = useWindowDimensions();
   const sizedColumns = (width : number) => {
-    if (width > columnWidth * 2 + columnsGap * 1 + outerPadding) {
+           if (width > columnWidth * 3 + columnsGap * 2) {
+      return 3;
+    } else if (width > columnWidth * 2 + columnsGap * 1) {
       return 2;
     } else {
       return 1;
@@ -77,16 +78,25 @@ export const ExploreView = (
     <Stack
       spacing={1}
       style={{
-        width: maxWidth,
+        width: Math.min(maxWidth, width),
         marginLeft: 'auto',
         marginRight: 'auto',
       }}
     >
-      <p className={"text-subtitle"}>
-        Explore
+      <p className={"text-title"}>
+        Explore Recipes
       </p>
-      <ImageList cols={cols}>
+      <ImageList cols={cols} variant="masonry">
         {props.recipeYields.map((r, idx) => {
+          const yieldImage = (style) => (
+            <img
+              src={r.image}
+              style={{
+                ...style,
+                width: imageWidth,
+              }}
+            />
+          );
           return (
             <div
               key={idx}
@@ -96,25 +106,25 @@ export const ExploreView = (
               }}
             >
               <ImageListItem>
-                <img
-                  src={r.image}
-                  style={{
-                    borderRadius: "5px",
-                    padding: 3,
-                    backgroundColor: "#888",
-                    width: imageWidth,
-                    height: imageWidth,
-                  }}
-                />
-                <ImageListItemBar
-                  title={(
-                    <Link to={r.link} style={{color: 'inherit'}}>
-                      {r.name}
+                {r.link
+                  ? (
+                    <Link
+                      to={r.link}
+                      style={{
+                        color: 'inherit',
+                        width: imageWidth,
+                      }}
+                    >
+                      {yieldImage({})}
                     </Link>
-                  )}
+                  )
+                  : yieldImage({ filter: 'grayscale(100%)' })
+                }
+                <ImageListItemBar
+                  title={r.name}
                   subtitle={(
                     <div>
-                      {explorerLinkForAddress(r.mint)}
+                      {r.mint ? explorerLinkForAddress(r.mint) : null}
                     </div>
                   )}
                   position="below"

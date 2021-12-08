@@ -105,6 +105,24 @@ export function Routes() {
                   recipeYields={[
                     ...cityYields.map(c => ({ ...c, link: "/collectoooooor" })),
                     ...mightknightduckYields.map(c => ({ ...c, link: "/mightknightyduck" })),
+                    ...[
+                      {
+                        image: "https://pbs.twimg.com/media/FF9EUFEWUAkhJcy?format=jpg&name=large",
+                        name: "robo ape",
+                      }
+                    ],
+                    ...[
+                      {
+                        image: "https://pbs.twimg.com/media/FF9EUF0WYAoXcyf?format=jpg&name=large",
+                        name: "mother duck",
+                      }
+                    ],
+                    ...[
+                      {
+                        image: "https://pbs.twimg.com/media/FF9EUHDWQAcWhj0?format=jpg&name=large",
+                        name: "duck zeppelin",
+                      }
+                    ],
                   ]}
                 />
               )
