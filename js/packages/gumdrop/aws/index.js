@@ -9,6 +9,7 @@ const MERKLE_DISTRIBUTOR_ID = new PublicKey(process.env.MA_DISTRIBUTOR_ID);
 const CLAIM_INSTR = Buffer.from(sha256.digest("global:claim")).slice(0, 8);
 const CANDY_INSTR = Buffer.from(sha256.digest("global:claim_candy")).slice(0, 8);
 const EDITION_INSTR = Buffer.from(sha256.digest("global:claim_edition")).slice(0, 8);
+const PROVE_INSTR = Buffer.from(sha256.digest("global:prove_claim")).slice(0, 8);
 const SIGNER = Keypair.fromSecretKey(Buffer.from(JSON.parse(process.env.MA_SIGNER)));
 
 const OTP_SECRET = Buffer.from(JSON.parse(process.env.MA_OTP_SECRET));
@@ -95,7 +96,12 @@ const sendOTP = async (event) => {
   } else if (Buffer.from(claim.data.slice(0, 8)).equals(CANDY_INSTR)) {
     pda = claim.data.slice(26, 26 + 32);
   } else if (Buffer.from(claim.data.slice(0, 8)).equals(EDITION_INSTR)) {
-    pda = claim.data.slice(33, 33+ 32);
+    pda = claim.data.slice(33, 33 + 32);
+  } else if (Buffer.from(claim.data.slice(0, 8)).equals(PROVE_INSTR)) {
+    const prefixLen = new BN(claim.data.slice(8, 8 + 4), 'le').toNumber();
+    console.log(`Prefix length ${prefixLen}: ${claim.data.slice(12, 12 + prefixLen)}`);
+    // 8 + 4 + prefixLen + 1 + 8 + 8
+    pda = claim.data.slice(29 + prefixLen, 29 + prefixLen + 32);
   } else {
     throw new Error("Claim instruction does not match");
   }
@@ -131,34 +137,45 @@ const sendOTP = async (event) => {
   await logDB(handle, time, serializedBuffer);
 
   const otpMessage = `Your gumdrop OTP is ${String(otp).padStart(8, "0")}`;
-  if (event.discordGuild) {
-    const client = new discord.Client();
-    await client.login(process.env.DISCORD_BOT_TOKEN);
+  switch (event.comm) {
+    case "discord": {
+      const client = new discord.Client();
+      await client.login(process.env.DISCORD_BOT_TOKEN);
 
-    const guild = await client.guilds.fetch(event.discordGuild);
-
-    const user = await guild.members.fetch(handle);
-    if (!user) {
-      throw new Error(`Could not find discord user ${handle}`);
+      const user = await client.users.fetch(handle);
+      if (!user) {
+        throw new Error(`Could not find discord user ${handle}`);
+      }
+      return await user.send(otpMessage);
     }
-    return await user.send(otpMessage);
-  } else {
-    const params = {
-      Destination: {
-        ToAddresses: [handle],
-      },
-      Message: {
-        Body: {
-          Text: { Data: otpMessage },
+    case "aws-sms": {
+      const params = {
+        Message: otpMessage,
+        PhoneNumber: handle,
+      };
+
+      const sns = new AWS.SNS({ region: "us-east-1" });
+      return sns.publish(params).promise();
+    }
+    case "aws-email":
+    default: {
+      const params = {
+        Destination: {
+          ToAddresses: [handle],
         },
+        Message: {
+          Body: {
+            Text: { Data: otpMessage },
+          },
 
-        Subject: { Data: "Gumdrop OTP" },
-      },
-      Source: "santa@aws.metaplex.com",
-    };
+          Subject: { Data: "Gumdrop OTP" },
+        },
+        Source: "santa@aws.metaplex.com",
+      };
 
-    const ses = new AWS.SES({ region: "us-east-2" });
-    return ses.sendEmail(params).promise();
+      const ses = new AWS.SES({ region: "us-east-2" });
+      return ses.sendEmail(params).promise();
+    }
   }
 };
 

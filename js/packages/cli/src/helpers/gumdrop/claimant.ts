@@ -6,7 +6,7 @@ import {
   SystemProgram,
   TransactionInstruction,
 } from '@solana/web3.js';
-import { AccountLayout, MintInfo, MintLayout, Token } from '@solana/spl-token';
+import { AccountLayout, MintInfo, MintLayout, Token, u64 } from '@solana/spl-token';
 import * as anchor from '@project-serum/anchor';
 import { sha256 } from 'js-sha256';
 import BN from 'bn.js';
@@ -121,14 +121,14 @@ export const getCandyConfig = async (
   try {
     configKey = new PublicKey(config);
   } catch (err) {
-    throw new Error(`Invalid config key ${err}`);
+    throw new Error(`Invalid config key ${config}: ${err}`);
   }
   const configAccount = await connection.getAccountInfo(configKey);
   if (configAccount === null) {
-    throw new Error(`Could not fetch config`);
+    throw new Error(`Could not fetch config ${config}`);
   }
   if (!configAccount.owner.equals(CANDY_MACHINE_PROGRAM_ID)) {
-    throw new Error(`Invalid config owner ${configAccount.owner.toBase58()}`);
+    throw new Error(`Invalid config owner ${configAccount.owner.toBase58()}. Expected ${CANDY_MACHINE_PROGRAM_ID.toBase58()}`);
   }
   return configKey;
 };
@@ -147,7 +147,7 @@ export const getCandyMachine = async (
   }
   const candyMachineAccount = await connection.getAccountInfo(candyMachineKey);
   if (candyMachineAccount === null) {
-    throw new Error(`Could not fetch candy machine`);
+    throw new Error(`Could not fetch candy machine at ${candyMachineKey.toBase58()}`);
   }
   return candyMachineCoder.accounts.decode(
     'CandyMachine',
@@ -163,18 +163,18 @@ export const getMintInfo = async (
   try {
     mintKey = new PublicKey(mint);
   } catch (err) {
-    throw new Error(`Invalid mint key ${err}`);
+    throw new Error(`Invalid mint key ${mint}: ${err}`);
   }
   const mintAccount = await connection.getAccountInfo(mintKey);
   if (mintAccount === null) {
-    throw new Error(`Could not fetch mint`);
+    throw new Error(`Could not fetch mint ${mint}`);
   }
   if (!mintAccount.owner.equals(TOKEN_PROGRAM_ID)) {
     const mintOwner = mintAccount.owner.toBase58();
-    throw new Error(`Invalid mint owner ${mintOwner}`);
+    throw new Error(`Invalid mint owner ${mintOwner}. Expected ${TOKEN_PROGRAM_ID.toBase58()}`);
   }
   if (mintAccount.data.length !== MintLayout.span) {
-    throw new Error(`Invalid mint size ${mintAccount.data.length}`);
+    throw new Error(`Invalid mint size ${mintAccount.data.length}. Expected ${MintLayout.span}`);
   }
   const mintInfo = MintLayout.decode(Buffer.from(mintAccount.data));
   return {
@@ -187,7 +187,7 @@ export const getCreatorTokenAccount = async (
   walletKey: PublicKey,
   connection: RPCConnection,
   mintKey: PublicKey,
-  totalClaim: number,
+  totalClaim: BN,
 ) => {
   const creatorTokenKey = await getTokenWallet(walletKey, mintKey);
   const creatorTokenAccount = await connection.getAccountInfo(creatorTokenKey);
@@ -202,7 +202,7 @@ export const getCreatorTokenAccount = async (
   const creatorTokenInfo = AccountLayout.decode(
     Buffer.from(creatorTokenAccount.data),
   );
-  if (new BN(creatorTokenInfo.amount, 8, 'le').toNumber() < totalClaim) {
+  if (new BN(creatorTokenInfo.amount, 8, 'le').lt(totalClaim)) {
     throw new Error(`Creator token account does not have enough tokens`);
   }
   return creatorTokenKey;
@@ -245,7 +245,7 @@ export const validateTransferClaims = async (
     if (c.amount === 0) throw new Error(`Claimant ${idx} amount is 0`);
   });
 
-  const total = claimants.reduce((acc, c) => acc + c.amount, 0);
+  const total = claimants.reduce((acc, c) => acc.add(new BN(c.amount)), new BN(0));
   const mint = await getMintInfo(connection, mintStr);
   const source = await getCreatorTokenAccount(
     walletKey,
@@ -274,22 +274,22 @@ export const validateCandyClaims = async (
     if (c.amount === 0) throw new Error(`Claimant ${idx} amount is 0`);
   });
 
-  const total = claimants.reduce((acc, c) => acc + c.amount, 0);
+  const total = claimants.reduce((acc, c) => acc.add(new BN(c.amount)), new BN(0));
   const configKey = await getCandyConfig(connection, candyConfig);
   const [candyMachineKey] = await getCandyMachineAddress(configKey, candyUuid);
 
   const candyMachine = await getCandyMachine(connection, candyMachineKey);
 
   const remaining =
-    candyMachine.data.itemsAvailable.toNumber() -
-    candyMachine.itemsRedeemed.toNumber();
+    candyMachine.data.itemsAvailable.sub(
+        candyMachine.itemsRedeemed);
   if (isNaN(remaining)) {
     // TODO: should this have an override?
     throw new Error(
       `Could not calculate how many candy machine items are remaining`,
     );
   }
-  if (remaining < total) {
+  if (remaining.lt(total)) {
     throw new Error(
       `Distributor is allocated more mints (${total}) ` +
         `than the candy machine has remaining (${remaining})`,
@@ -354,13 +354,13 @@ export const validateEditionClaims = async (
     }
   });
 
-  const total = claimants.reduce((acc, c) => acc + c.amount, 0);
+  const total = claimants.reduce((acc, c) => acc.add(new BN(c.amount)), new BN(0));
   const masterMint = await getMintInfo(connection, masterMintStr);
   const masterTokenAccount = await getCreatorTokenAccount(
     walletKey,
     connection,
     masterMint.key,
-    1, // just check that the creator has the master mint
+    new BN(1), // just check that the creator has the master mint
   );
 
   const masterEditionKey = await getMasterEdition(masterMint.key);
@@ -384,12 +384,12 @@ export const validateEditionClaims = async (
       masterEdition.data.slice(10, 10 + 8),
       8,
       'le',
-    ).toNumber();
+    );
   }
   console.log('Max supply', maxSupply);
   console.log('Current supply', currentSupply);
 
-  if (maxSupply !== null && maxSupply < total) {
+  if (maxSupply !== null && maxSupply.lt(total)) {
     throw new Error(
       `Distributor is allocated more editions (${total}) ` +
         `than the master has total (${maxSupply})`,
@@ -414,7 +414,7 @@ export const validateEditionClaims = async (
     if (c.edition <= 0) {
       throw new Error(`Claimant ${idx} assigned invalid edition ${c.edition}`);
     }
-    if (maxSupply !== null && c.edition > maxSupply) {
+    if (maxSupply !== null && new BN(c.edition).gt(maxSupply)) {
       throw new Error(
         `Claimant ${idx} assigned edition ${c.edition} which is beyond the max supply`,
       );
@@ -481,7 +481,7 @@ export const chunk = (arr: Buffer, len: number): Array<Buffer> => {
 export const buildGumdrop = async (
   connection: RPCConnection,
   walletKey: PublicKey,
-  needsPin: boolean,
+  commMethod : string,
   claimIntegration: string,
   host: string,
   baseKey: PublicKey,
@@ -490,6 +490,7 @@ export const buildGumdrop = async (
   claimInfo: ClaimInfo,
   extraParams: Array<string> = [],
 ): Promise<Array<TransactionInstruction>> => {
+  const needsPin = commMethod !== "wallets";
   const leafs: Array<Buffer> = [];
   for (let idx = 0; idx < claimants.length; ++idx) {
     const claimant = claimants[idx];
@@ -497,7 +498,7 @@ export const buildGumdrop = async (
       try {
         claimant.secret = new PublicKey(claimant.handle);
       } catch (err) {
-        throw new Error(`Invalid claimant wallet handle ${err}`);
+        throw new Error(`Invalid claimant wallet handle ${claimant.handle}: ${err}`);
       }
     } else {
       const seeds = [
@@ -549,6 +550,7 @@ export const buildGumdrop = async (
     const claimant = claimants[idx];
     const params = [
       `distributor=${distributor}`,
+      `method=${commMethod}`,
       `handle=${encodeURIComponent(claimant.handle)}`,
       `amount=${claimant.amount}`,
       `index=${idx}`,
@@ -602,7 +604,7 @@ export const buildGumdrop = async (
         distributor,
         walletKey,
         [],
-        claimInfo.total,
+        u64.fromBuffer(Buffer.from(claimInfo.total.toArray('le', 8))),
       ),
     );
   } else if (claimIntegration === 'candy') {
@@ -695,7 +697,7 @@ export const closeGumdrop = async (
       walletKey,
       connection,
       mint.key,
-      0,
+      new BN(0),
     );
     // distributor is about to be closed anyway so this is redundant but...
     instructions.push(
@@ -723,7 +725,7 @@ export const closeGumdrop = async (
     try {
       masterMintKey = new PublicKey(masterMint);
     } catch (err) {
-      throw new Error(`Invalid mint key ${err}`);
+      throw new Error(`Invalid mint key ${masterMint}: ${err}`);
     }
     const [distributorTokenKey] = await PublicKey.findProgramAddress(
       [

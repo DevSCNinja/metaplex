@@ -21,7 +21,7 @@ import {
   getCandyConfig,
   getCandyMachineAddress,
   getCandyMachine,
-  getCreatorTokenAccount,
+  getATAChecked,
   getEdition,
   getEditionMarkerPda,
   getMintInfo,
@@ -155,9 +155,9 @@ export const validateTransferClaims = async (
     if (c.amount === 0) throw new Error(`Claimant ${idx} amount is 0`);
   });
 
-  const total = claimants.reduce((acc, c) => acc + c.amount, 0);
+  const total = claimants.reduce((acc, c) => acc.add(new BN(c.amount)), new BN(0));
   const mint = await getMintInfo(connection, mintStr);
-  const source = await getCreatorTokenAccount(
+  const source = await getATAChecked(
     walletKey,
     connection,
     mint.key,
@@ -184,18 +184,14 @@ export const validateCandyClaims = async (
     if (c.amount === 0) throw new Error(`Claimant ${idx} amount is 0`);
   });
 
-  const total = claimants.reduce((acc, c) => acc + c.amount, 0);
+  const total = claimants.reduce((acc, c) => acc.add(new BN(c.amount)), new BN(0));
   const configKey = await getCandyConfig(connection, candyConfig);
   const [candyMachineKey, ] = await getCandyMachineAddress(configKey, candyUuid);
 
   const candyMachine = await getCandyMachine(connection, candyMachineKey);
 
-  const remaining = candyMachine.data.itemsAvailable.toNumber() - candyMachine.itemsRedeemed.toNumber();
-  if (isNaN(remaining)) {
-    // TODO: should this have an override?
-    throw new Error(`Could not calculate how many candy machine items are remaining`);
-  }
-  if (remaining < total) {
+  const remaining = candyMachine.data.itemsAvailable.sub(candyMachine.itemsRedeemed);
+  if (remaining.lt(total)) {
     throw new Error(`Distributor is allocated more mints (${total}) `
                   + `than the candy machine has remaining (${remaining})`);
   }
@@ -256,11 +252,11 @@ export const validateEditionClaims = async (
 
   const total = claimants.reduce((acc, c) => acc + c.amount, 0);
   const masterMint = await getMintInfo(connection, masterMintStr);
-  const masterTokenAccount = await getCreatorTokenAccount(
+  const masterTokenAccount = await getATAChecked(
     walletKey,
     connection,
     masterMint.key,
-    1 // just check that the creator has the master mint
+    new BN(1) // just check that the creator has the master mint
   );
 
   const masterEditionKey = await getEdition(masterMint.key);
@@ -360,7 +356,7 @@ export const chunk = (
 export const buildGumdrop = async (
   connection : RPCConnection,
   walletKey : PublicKey,
-  needsPin : boolean,
+  commMethod : string,
   claimIntegration : string,
   host : string,
   baseKey : PublicKey,
@@ -370,6 +366,7 @@ export const buildGumdrop = async (
   extraParams : Array<string> = [],
 ) : Promise<Array<TransactionInstruction>> => {
 
+  const needsPin = commMethod !== "wallets";
   const leafs : Array<Buffer> = [];
   for (let idx = 0; idx < claimants.length; ++idx ) {
     const claimant = claimants[idx];
@@ -427,6 +424,7 @@ export const buildGumdrop = async (
     const claimant = claimants[idx];
     const params = [
       `distributor=${distributor}`,
+      `method=${commMethod}`,
       `handle=${encodeURIComponent(claimant.handle)}`,
       `amount=${claimant.amount}`,
       `index=${idx}`,
@@ -563,8 +561,8 @@ export const closeGumdrop = async (
 
   if (claimMethod === "transfer") {
     const mint = await getMintInfo(connection, transferMint);
-    const source = await getCreatorTokenAccount(
-      walletKey, connection, mint.key, 0
+    const source = await getATAChecked(
+      walletKey, connection, mint.key, new BN(0)
     );
     // distributor is about to be closed anyway so this is redundant but...
     instructions.push(Token.createRevokeInstruction(
