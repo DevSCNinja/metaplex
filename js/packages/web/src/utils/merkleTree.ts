@@ -2,18 +2,19 @@ import { keccak_256 } from "js-sha3";
 
 export class MerkleTree {
   leafs: Array<Buffer>;
+  leaf_flags: undefined | Array<number>;
   layers: Array<Array<Buffer>>;
 
   constructor(leafs: Array<Buffer>, leaf_flags?: Array<number>) {
     this.leafs = leafs.slice();
-    this.leaf_flags = leaf_flags.slice();
+    this.leaf_flags = leaf_flags && leaf_flags.slice();
     this.layers = [];
 
     let hashes;
-    if (!this.leaf_flags) {
+    if (!leaf_flags) {
       hashes = this.leafs.map(MerkleTree.nodeHash);
     } else {
-      hashes = this.leafs.map((l, idx) => MerkleTree.nodeHash(l, this.leaf_flags[idx]));
+      hashes = this.leafs.map((l, idx) => MerkleTree.nodeHash(l, leaf_flags[idx]));
     }
     while (hashes.length > 0) {
       console.log('Hashes', this.layers.length, hashes);

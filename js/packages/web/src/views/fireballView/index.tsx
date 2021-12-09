@@ -24,9 +24,10 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 
 import {
+  AccountMeta,
   Connection as RPCConnection,
   Keypair,
-    PublicKey,
+  PublicKey,
   SystemProgram,
   TransactionInstruction,
   SYSVAR_RENT_PUBKEY,
@@ -351,7 +352,7 @@ const getRelevantTokenAccounts = async (
 
   let editionParentKeys;
   const mintEditions = {};
-  if (Object.values(mints).every(m => !m.allowLimitedEdition)) {
+  if (Object.values(mints).every(m => !(m as any).allowLimitedEdition)) {
     console.log('No limited editions allowed. Skipping fetches');
     editionParentKeys = new Array(decoded.length);
   } else {
@@ -730,7 +731,7 @@ export const FireballView = (
         storeKeysAndBumps.map(s => s[0]));
     console.log('Finished fetching stores', getUnixTs() - startTime);
 
-    const recipe = await program.account.recipe.fetch(recipeKey);
+    const recipeData = await program.account.recipe.fetch(recipeKey) as any;
 
     for (let idx = 0; idx < ingredientList.length; ++idx) {
       const group = ingredientList[idx];
@@ -761,7 +762,7 @@ export const FireballView = (
         const mintsKeys = group.mints.map(m => new PublicKey(m));
         const mintIdx = mintsKeys.findIndex(m => m.equals(change.mint));
         const parentIdx = relevantMint.parent
-          ? mintsKeys.findIndex(m => m.equals(relevantMint.parent.masterMint))
+          ? mintsKeys.findIndex(m => m.equals(relevantMint.parent?.masterMint))
           : -1;
         if (mintIdx === -1 && parentIdx == -1) {
           const changeMint = change.mint.toBase58();
@@ -776,16 +777,19 @@ export const FireballView = (
           dataFlags,
         );
 
-        if (!Buffer.from(recipe.roots[idx]).equals(tree.getRoot())) {
+        if (!Buffer.from(recipeData.roots[idx]).equals(tree.getRoot())) {
           throw new Error(`Merkle tree for ingredient ${group.ingredientMint} does not match chain`);
         }
 
-        const remainingAccounts = [];
+        const remainingAccounts : Array<AccountMeta> = [];
         let proof, ingredientMint;
         if (mintIdx !== -1) {
           proof = tree.getProof(mintIdx);
           ingredientMint = change.mint;
         } else {
+          if (!relevantMint.parent) { // typescript...
+            throw new Error(`internal error: inconsistent parent state`);
+          }
           proof = tree.getProof(parentIdx);
           ingredientMint = relevantMint.parent.masterMint;
           remainingAccounts.push(
