@@ -102,6 +102,7 @@ export const ExploreView = (
               style={{
                 ...style,
                 objectFit: 'cover',
+                aspectRatio: "1",
                 width: '100%',
                 height: '100%',
               }}
@@ -135,7 +136,7 @@ export const ExploreView = (
                   title={r.name}
                   subtitle={(
                     <div>
-                      {r.mint ? explorerLinkForAddress(r.mint) : null}
+                      {r.mint ? explorerLinkForAddress(r.mint) : <p>{"\u00A0"}</p>}
                     </div>
                   )}
                   position="below"

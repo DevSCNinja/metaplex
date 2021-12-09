@@ -1161,7 +1161,10 @@ export const FireballView = (
               <ImageListItem>
                 <img
                   src={r.image}
-                  // style={imgBorderStyle}
+                  style={{
+                    height: "100%",
+                    aspectRatio: "1",
+                  }}
                 />
                 <ImageListItemBar
                   title={r.name}
