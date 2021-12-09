@@ -68,8 +68,8 @@ export function Routes() {
   const mightknightduckYields = [
     {
       image: "https://www.arweave.net/UMsb5j6OWgM-JUEeQqYej82kHFDw7GPGA2pzSUkRFdE?ext=gif",
-      name: "might knighty duck",
-      mint: new PublicKey("EcUyYeSNMdK6b9jKqMTznc24J8a9GvfbwgWurMbzmg3B"),
+      name: "mighty knighty duck",
+      mint: new PublicKey("2oXhnNh3pAPLBkQJyVceuZHNWkwpM5azKjGfqeBbAF3R"),
     },
   ];
 
@@ -88,14 +88,15 @@ export function Routes() {
                 />
               )
             } />
-            <Route path="/mightknightyduck" component={
+            <Route path="/mightyknightyduck" component={
               () => (
                 <FireballView
-                  recipeKey={new PublicKey("2FH1WCZtKxzjRZ4EPJBR9beCLn4eAURUEkW22CS5fF3Z")}
+                  recipeKey={new PublicKey("Ect7qLAG8cJRkT4FE8gxKN9rSpBMktNA8fZzVHpS44Sn")}
                   recipeYields={mightknightduckYields}
-                  ingredients={
-                    ingredientSubset(['duck with doughnut', 'normal duck'])
-                  }
+                  ingredients={{
+                    ...ingredientSubset(['duck with doughnut', 'normal duck']),
+                    "mighty knighty duck recipe": "https://www.arweave.net/5-CbCHZGiLBHwx8GPZx2g8aIvX_5mG_TUpuvoTUo3Lk?ext=png",
+                  }}
                 />
               )
             } />
@@ -104,7 +105,7 @@ export function Routes() {
                 <ExploreView
                   recipeYields={[
                     ...cityYields.map(c => ({ ...c, link: "/collectoooooor" })),
-                    ...mightknightduckYields.map(c => ({ ...c, link: "/mightknightyduck" })),
+                    ...mightknightduckYields.map(c => ({ ...c, link: "/mightyknightyduck" })),
                     ...[
                       {
                         image: "https://pbs.twimg.com/media/FF9EUFEWUAkhJcy?format=jpg&name=large",
