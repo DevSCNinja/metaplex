@@ -91,7 +91,7 @@ export function Routes() {
             <Route path="/mightyknightyduck" component={
               () => (
                 <FireballView
-                  recipeKey={new PublicKey("Ect7qLAG8cJRkT4FE8gxKN9rSpBMktNA8fZzVHpS44Sn")}
+                  recipeKey={new PublicKey("HnKE8p6cdcfbn4hZA3wT4YciXvALzmFb9Fc91b74Ka1i")}
                   recipeYields={mightyKnightyDuckYields}
                   ingredients={{
                     ...ingredientSubset(['duck with doughnut', 'normal duck']),
