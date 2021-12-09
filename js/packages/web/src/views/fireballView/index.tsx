@@ -41,10 +41,13 @@ import {
   Connection,
   useConnectionConfig,
   chunks,
+  decodeEdition,
   decodeMasterEdition,
   decodeMetadata,
+  getMultipleAccounts, // wrapper that does chunking
   getUnixTs,
   Metadata,
+  MetadataKey,
   notify,
   shortenAddress,
   SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
@@ -326,8 +329,11 @@ const getRelevantTokenAccounts = async (
 ) => {
   const mints = {};
   for (const group of ingredientList)
-    for (const mint of group.mints)
-      mints[mint] = group.ingredient;
+    for (const [idx, mint] of group.mints.entries())
+      mints[mint] = {
+        ingredient: group.ingredient,
+        allowLimitedEdition: group.allowLimitedEditions && group.allowLimitedEditions[idx],
+      };
 
   const owned = await connection.getTokenAccountsByOwner(
       walletKey,
@@ -336,8 +342,31 @@ const getRelevantTokenAccounts = async (
 
   const decoded = owned.value.map(v => AccountLayout.decode(v.account.data));
   console.log(decoded);
-  const relevant = decoded.filter(a => {
-    const mintMatches = (new PublicKey(a.mint).toBase58()) in mints;
+  // TODO: can we skip some of these when allowLimitedEditions is false?
+  const editionKeys = await Promise.all(decoded.map(async (a) => {
+    const mint = new PublicKey(a.mint);
+    return (await getEdition(mint)).toBase58();
+  }));
+  const editionDatas = (await getMultipleAccounts(
+    // TODO: different commitment?
+    connection, editionKeys, 'processed')).array;
+  console.log(editionDatas);
+  const editionParentKeys = editionDatas.map(e => {
+    if (!e) {
+      // shouldn't happen?
+      return undefined;
+    }
+    if (e.data[0] == MetadataKey.EditionV1) {
+      return decodeEdition(e.data).parent;
+    } else {
+      return undefined;
+    }
+  });
+  const relevant = decoded.filter((a, idx) => {
+    const editionParentKey = editionParentKeys[idx];
+    const mintMatches =
+      (new PublicKey(a.mint).toBase58()) in mints
+      || (editionParentKey && mints[editionParentKey]);
     const hasToken = new BN(a.amount, 'le').toNumber() > 0;
     return mintMatches && hasToken;
   });
@@ -346,7 +375,7 @@ const getRelevantTokenAccounts = async (
   const relevantImages = await fetchMintsAndImages(
       connection, relevant.map(r => new PublicKey(r.mint)));
   const ret = relevantImages.map(
-      r => ({ ...r, ingredient: mints[r.mint.toBase58()] }));
+      r => ({ ...r, ingredient: mints[r.mint.toBase58()].ingredient }));
   ret.sort((lft, rht) => lft.ingredient.localeCompare(rht.ingredient));
   return ret;
 };
