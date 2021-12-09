@@ -7,6 +7,7 @@ import {
 import { sendTransactionWithRetryWithKeypair } from '../helpers/transactions';
 import {
   getTokenWallet,
+  getEditionMarkPda,
   getMetadata,
   getMasterEdition,
 } from '../helpers/accounts';
@@ -20,7 +21,11 @@ import {
   METADATA_SCHEMA,
 } from '../helpers/schema';
 import { serialize } from 'borsh';
-import { TOKEN_PROGRAM_ID } from '../helpers/constants';
+import {
+  TOKEN_METADATA_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+  SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
+} from '../helpers/constants';
 import fetch from 'node-fetch';
 import { MintLayout, Token } from '@solana/spl-token';
 import {
@@ -29,6 +34,7 @@ import {
   SystemProgram,
   TransactionInstruction,
   PublicKey,
+  SYSVAR_RENT_PUBKEY,
 } from '@solana/web3.js';
 import log from 'loglevel';
 
@@ -82,20 +88,11 @@ export const createMetadata = async (metadataLink: string): Promise<Data> => {
   });
 };
 
-export const mintNFT = async (
+export const generateMint = async (
   connection: Connection,
-  walletKeypair: Keypair,
-  metadataLink: string,
-  mutableMetadata: boolean = true,
-): Promise<PublicKey | void> => {
-  // Retrieve metadata
-  const data = await createMetadata(metadataLink);
-  if (!data) return;
-
-  // Create wallet from keypair
-  const wallet = new anchor.Wallet(walletKeypair);
-  if (!wallet?.publicKey) return;
-
+  wallet: anchor.Wallet,
+  instructions: Array<TransactionInstruction>,
+) => {
   // Allocate memory for the account
   const mintRent = await connection.getMinimumBalanceForRentExemption(
     MintLayout.span,
@@ -103,8 +100,6 @@ export const mintNFT = async (
 
   // Generate a mint
   const mint = anchor.web3.Keypair.generate();
-  const instructions: TransactionInstruction[] = [];
-  const signers: anchor.web3.Keypair[] = [mint, walletKeypair];
 
   instructions.push(
     SystemProgram.createAccount({
@@ -138,6 +133,44 @@ export const mintNFT = async (
     ),
   );
 
+  instructions.push(
+    Token.createMintToInstruction(
+      TOKEN_PROGRAM_ID,
+      mint.publicKey,
+      userTokenAccoutAddress,
+      wallet.publicKey,
+      [],
+      1,
+    ),
+  );
+
+  return {
+    mint,
+    userTokenAccoutAddress,
+  };
+}
+
+export const mintNFT = async (
+  connection: Connection,
+  walletKeypair: Keypair,
+  metadataLink: string,
+  mutableMetadata: boolean = true,
+): Promise<PublicKey | void> => {
+  // Retrieve metadata
+  const data = await createMetadata(metadataLink);
+  if (!data) return;
+
+  // Create wallet from keypair
+  const wallet = new anchor.Wallet(walletKeypair);
+  if (!wallet?.publicKey) return;
+
+  const instructions: TransactionInstruction[] = [];
+  const signers: anchor.web3.Keypair[] = [walletKeypair];
+
+  const { mint, userTokenAccoutAddress } = await generateMint(
+      connection, wallet, instructions);
+  signers.push(mint);
+
   // Create metadata
   const metadataAccount = await getMetadata(mint.publicKey);
   let txnData = Buffer.from(
@@ -155,17 +188,6 @@ export const mintNFT = async (
       wallet.publicKey,
       wallet.publicKey,
       txnData,
-    ),
-  );
-
-  instructions.push(
-    Token.createMintToInstruction(
-      TOKEN_PROGRAM_ID,
-      mint.publicKey,
-      userTokenAccoutAddress,
-      wallet.publicKey,
-      [],
-      1,
     ),
   );
 
@@ -207,6 +229,85 @@ export const mintNFT = async (
   await connection.getParsedConfirmedTransaction(res.txid, 'confirmed');
   log.info('NFT created', res.txid);
   return metadataAccount;
+};
+
+export const mintLimitedEdition = async (
+  connection: Connection,
+  walletKeypair: Keypair,
+  masterMint: string,
+  edition: number,
+): Promise<PublicKey | void> => {
+  // Create wallet from keypair
+  const wallet = new anchor.Wallet(walletKeypair);
+  if (!wallet?.publicKey) return;
+
+  const masterMintKey = new PublicKey(masterMint);
+  const masterMetadataKey = await getMetadata(masterMintKey);
+  const masterEditionKey = await getMasterEdition(masterMintKey);
+
+  const instructions: TransactionInstruction[] = [];
+  const signers: anchor.web3.Keypair[] = [walletKeypair];
+
+  const { mint, userTokenAccoutAddress } = await generateMint(
+      connection, wallet, instructions);
+  signers.push(mint);
+
+  const newMetadataKey = await getMetadata(mint.publicKey);
+  const newEditionKey = await getMasterEdition(mint.publicKey); // same PDA spot
+
+  const editionMarkPda = await getEditionMarkPda(masterMintKey, edition);
+
+  const [walletTokenKey, ] = await PublicKey.findProgramAddress(
+    [
+      wallet.publicKey.toBuffer(),
+      TOKEN_PROGRAM_ID.toBuffer(),
+      masterMintKey.toBuffer(),
+    ],
+    SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID
+  );
+
+  instructions.push(new TransactionInstruction({
+      programId: TOKEN_METADATA_PROGRAM_ID,
+      keys: [
+          { pubkey: newMetadataKey            , isSigner: false , isWritable: true  } ,
+          { pubkey: newEditionKey             , isSigner: false , isWritable: true  } ,
+          { pubkey: masterEditionKey          , isSigner: false , isWritable: true  } ,
+          { pubkey: mint.publicKey            , isSigner: false , isWritable: true  } ,
+          { pubkey: editionMarkPda            , isSigner: false , isWritable: true  } ,
+          { pubkey: wallet.publicKey          , isSigner: false , isWritable: false } , // `mint` auth
+          { pubkey: wallet.publicKey          , isSigner: true  , isWritable: false } , // payer
+          { pubkey: wallet.publicKey          , isSigner: true  , isWritable: false } , // token account owner
+          { pubkey: walletTokenKey            , isSigner: false , isWritable: false } , // token account
+          { pubkey: wallet.publicKey          , isSigner: false , isWritable: false } , // new metadata update authority
+          { pubkey: masterMetadataKey         , isSigner: false , isWritable: false } ,
+
+          { pubkey: TOKEN_PROGRAM_ID          , isSigner: false , isWritable: false } ,
+          { pubkey: SystemProgram.programId   , isSigner: false , isWritable: false } ,
+          { pubkey: SYSVAR_RENT_PUBKEY        , isSigner: false , isWritable: false } ,
+      ],
+      data: Buffer.from([
+        11,
+        ...new anchor.BN(edition).toArray('le', 8),
+      ])
+  }));
+
+  const res = await sendTransactionWithRetryWithKeypair(
+    connection,
+    walletKeypair,
+    instructions,
+    signers,
+  );
+
+  try {
+    await connection.confirmTransaction(res.txid, 'max');
+  } catch {
+    // ignore
+  }
+
+  // Force wait for max confirmations
+  await connection.getParsedConfirmedTransaction(res.txid, 'confirmed');
+  log.info('NFT created', res.txid);
+  return newMetadataKey;
 };
 
 export const updateMetadata = async (

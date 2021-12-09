@@ -1,6 +1,6 @@
 import { program } from 'commander';
 import log from 'loglevel';
-import { mintNFT, updateMetadata } from './commands/mint-nft';
+import { mintNFT, updateMetadata, mintLimitedEdition } from './commands/mint-nft';
 import { loadWalletKey } from './helpers/accounts';
 import { web3 } from '@project-serum/anchor';
 import { PublicKey } from '@solana/web3.js';
@@ -16,6 +16,21 @@ programCommand('mint')
     const solConnection = new web3.Connection(web3.clusterApiUrl(env));
     const walletKeyPair = loadWalletKey(keypair);
     await mintNFT(solConnection, walletKeyPair, url);
+  });
+
+programCommand('mint_limited_edition')
+  .option('--master-mint <string>', 'master mint')
+  .option('--edition <number>', 'edition to mint')
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  .action(async (directory, cmd) => {
+    const { keypair, env, masterMint, edition } = cmd.opts();
+    const editionNum = Number(edition);
+    if (isNaN(editionNum)) {
+      throw new Error(`Invalid edition number ${edition}`);
+    }
+    const solConnection = new web3.Connection(web3.clusterApiUrl(env));
+    const walletKeyPair = loadWalletKey(keypair);
+    await mintLimitedEdition(solConnection, walletKeyPair, masterMint, editionNum);
   });
 
 programCommand('update-metadata')
