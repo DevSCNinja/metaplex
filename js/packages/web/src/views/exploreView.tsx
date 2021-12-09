@@ -21,6 +21,10 @@ import {
   useConnectionConfig,
   shortenAddress,
 } from '@oyster/common';
+
+import {
+  CachedImageContent,
+} from '../components/ArtContent';
 import { Recipe } from './fireballView';
 import useWindowDimensions from '../utils/layout';
 import {
@@ -97,14 +101,13 @@ export const ExploreView = (
       <ImageList cols={cols} variant="masonry">
         {props.recipeYields.map((r, idx) => {
           const yieldImage = (style) => (
-            <img
-              src={r.image}
+            <CachedImageContent
+              uri={r.image}
+              preview={false}
+              className={"fullAspectRatio"}
               style={{
                 ...style,
                 objectFit: 'cover',
-                aspectRatio: "1",
-                width: '100%',
-                height: '100%',
               }}
             />
           );

@@ -61,6 +61,9 @@ import {
   useLoading,
 } from '../../components/Loader';
 import {
+  CachedImageContent,
+} from '../../components/ArtContent';
+import {
   useAnchorContext,
 } from '../../contexts/anchorContext';
 import useWindowDimensions from '../../utils/layout';
@@ -99,24 +102,6 @@ export const ThreeDots = () => (
     <circle cx="126" cy="100" r="8" />
   </ContentLoader>
 );
-
-const LoadingImage = (
-  props : {
-    url : string,
-  },
-) => {
-  const [loaded, setLoaded] = React.useState<boolean>(false);
-  return (
-    <Image
-      src={props.url}
-      onLoad={() => {
-        setLoaded(true);
-      }}
-      placeholder={<ThreeDots />}
-      {...(loaded ? {} : { height: "100%" })}
-    />
-  );
-}
 
 const createMintAndAccount = async (
   connection : RPCConnection,
@@ -1170,12 +1155,9 @@ export const FireballView = (
               }}
             >
               <ImageListItem>
-                <img
-                  src={r.image}
-                  style={{
-                    height: "100%",
-                    aspectRatio: "1",
-                  }}
+                <CachedImageContent
+                  uri={r.image}
+                  className={"fullAspectRatio"}
                 />
                 <ImageListItemBar
                   title={r.name}
@@ -1341,8 +1323,9 @@ export const FireballView = (
               }}
             >
               <ImageListItem>
-                <img
-                  src={ingredients[ingredient]}
+                <CachedImageContent
+                  uri={ingredients[ingredient]}
+                  className={"fullAspectRatio"}
                   style={{
                     ...imgBorderStyle,
                     padding: inBatch ? 10 : imgBorderStyle.padding,
