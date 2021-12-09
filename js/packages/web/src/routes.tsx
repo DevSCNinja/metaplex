@@ -108,13 +108,13 @@ export function Routes() {
                     ...[
                       {
                         image: "https://pbs.twimg.com/media/FF9EUFEWUAkhJcy?format=jpg&name=large",
-                        name: "robo ape",
+                        name: "professor ape cyborg",
                       }
                     ],
                     ...[
                       {
                         image: "https://pbs.twimg.com/media/FF9EUF0WYAoXcyf?format=jpg&name=large",
-                        name: "mother duck",
+                        name: "princess gwendolin",
                       }
                     ],
                     ...[
