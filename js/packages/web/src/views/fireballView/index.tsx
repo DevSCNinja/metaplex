@@ -342,41 +342,48 @@ const getRelevantTokenAccounts = async (
         allowLimitedEdition: group.allowLimitedEditions && group.allowLimitedEditions[idx],
       };
 
-  const mintEditions = {}
-  for (const m of Object.keys(mints)) {
-    const edition = (await getEdition(new PublicKey(m))).toBase58();
-    mintEditions[edition] = {
-      allowLimitedEdition: mints[m].allowLimitedEdition,
-      ingredient: mints[m].ingredient,
-      key: new PublicKey(m),
-    };
-  }
-
   const owned = await connection.getTokenAccountsByOwner(
       walletKey,
       { programId: TOKEN_PROGRAM_ID },
     );
 
   const decoded = owned.value.map(v => AccountLayout.decode(v.account.data));
-  // TODO: can we skip some of these when allowLimitedEditions is false?
-  const editionKeys = await Promise.all(decoded.map(async (a) => {
-    const mint = new PublicKey(a.mint);
-    return (await getEdition(mint)).toBase58();
-  }));
-  const editionDatas = (await getMultipleAccounts(
-    // TODO: different commitment?
-    connection, editionKeys, 'processed')).array;
-  const editionParentKeys = editionDatas.map(e => {
-    if (!e) {
-      // shouldn't happen?
-      return undefined;
+
+  let editionParentKeys;
+  const mintEditions = {};
+  if (Object.values(mints).every(m => !m.allowLimitedEdition)) {
+    console.log('No limited editions allowed. Skipping fetches');
+    editionParentKeys = new Array(decoded.length);
+  } else {
+    for (const m of Object.keys(mints)) {
+      const edition = (await getEdition(new PublicKey(m))).toBase58();
+      mintEditions[edition] = {
+        allowLimitedEdition: mints[m].allowLimitedEdition,
+        ingredient: mints[m].ingredient,
+        key: new PublicKey(m),
+      };
     }
-    if (e.data[0] == MetadataKey.EditionV1) {
-      return decodeEdition(e.data).parent;
-    } else {
-      return undefined;
-    }
-  });
+
+    const editionKeys = await Promise.all(decoded.map(async (a) => {
+      const mint = new PublicKey(a.mint);
+      return (await getEdition(mint)).toBase58();
+    }));
+    const editionDatas = (await getMultipleAccounts(
+      // TODO: different commitment?
+      connection, editionKeys, 'processed')).array;
+    editionParentKeys = editionDatas.map(e => {
+      if (!e) {
+        // skip if this is a non-NFT token
+        return undefined;
+      }
+      if (e.data[0] == MetadataKey.EditionV1) {
+        return decodeEdition(e.data).parent;
+      } else {
+        return undefined;
+      }
+    });
+  }
+
   const relevant = decoded
     .map((a, idx) => ({ ...a, editionParentKey: editionParentKeys[idx] }))
     .filter(a => {
