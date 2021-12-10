@@ -21,6 +21,7 @@ import {
 } from '@oyster/common';
 import { useSolPrice } from '../../contexts';
 import { useTokenList } from '../../contexts/tokenList';
+import { useDevModeContext } from '../../contexts/devModeContext';
 import { TokenCircle } from '../Custom';
 
 ('@solana/wallet-adapter-base');
@@ -277,6 +278,7 @@ export const Cog = () => {
   const { endpoint } = useConnectionConfig();
   const routerSearchParams = useQuerySearch();
   const { setVisible } = useWalletModal();
+  const { devModeEnabled, toggleDevMode } = useDevModeContext();
   const open = useCallback(() => setVisible(true), [setVisible]);
 
   return (
@@ -330,6 +332,13 @@ export const Cog = () => {
               onClick={open}
             >
               Change wallet
+            </Button>
+            <Button
+              className="metaplex-button-default"
+              style={btnStyle}
+              onClick={toggleDevMode}
+            >
+              {devModeEnabled ? 'Enable' : 'Show'} Developer Options
             </Button>
           </div>
         }

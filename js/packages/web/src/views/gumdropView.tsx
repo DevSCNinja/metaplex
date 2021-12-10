@@ -49,6 +49,9 @@ import {
   useAnchorContext,
 } from '../contexts/anchorContext';
 import {
+  useDevModeContext,
+} from '../contexts/devModeContext';
+import {
   GUMDROP_PROGRAM_ID,
   GUMDROP_TEMPORAL_SIGNER,
   SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
@@ -317,6 +320,7 @@ type ClaimTransactions = {
 export const GumdropView = (
   props : RouteComponentProps<ClaimProps>,
 ) => {
+  const { devModeEnabled } = useDevModeContext();
   const { connection, endpoint, anchorWallet: wallet } = useAnchorContext();
 
   const [program, setProgram] = React.useState<anchor.Program | null>(null);
@@ -768,6 +772,16 @@ export const GumdropView = (
   const Option = Select.Option;
   const populateClaimC = () => (
     <React.Fragment>
+      <p className={"text-title"}>
+        Gumdrop Information
+      </p>
+      <p className={"text-subtitle"}>
+        The fields below are derived from your gumdrop URL and specify
+        the limited edition print you'll be receiving. If you navigated
+        here through a gumdrop link, there should be no need to change
+        anything! If you know what you're doing, click 'Edit Claim' at the
+        bottom to manually change these fields.
+      </p>
       <label className="action-field">
         <span className="field-title">Gumdrop</span>
         <Input
@@ -863,6 +877,12 @@ export const GumdropView = (
           rows={proofStr.length / 80}
         />
       </label>
+      <Button
+        style={{ width: "100%", borderRadius: "8px" }}
+        onClick={() => setEditable(!editable)}
+      >
+        {!editable ? "Edit Claim" : "Stop Editing"}
+      </Button>
     </React.Fragment>
   );
 
@@ -963,30 +983,40 @@ export const GumdropView = (
     );
   };
 
+  // lol
+  const users = require('./recipe-gumdrop-users.json');
+
   const steps = [
     {
       name: "Populate Claim", 
       inner: (onClick) => (
         <React.Fragment>
-          {nextStepButtonC(onClick)}
-          {masterMintC()}
           <p className={"text-title"}>
-            Gumdrop Information
+            Recipe Gumdrop
           </p>
           <p className={"text-subtitle"}>
-            The fields below are derived from your gumdrop URL and specify
-            the limited edition print you'll be receiving. If you navigated
-            here through a gumdrop link, there should be no need to change
-            anything! If you know what you're doing, click 'Edit Claim' at the
-            bottom to manually change these fields.
+            Find your discord username to access your {masterMintManifest?.name} gumdrop!
           </p>
-          {populateClaimC()}
-          <Button
-            style={{ width: "100%", borderRadius: "8px" }}
-            onClick={() => setEditable(!editable)}
+          <Select
+            showSearch
+            // style={{ width: }}
+            placeholder="Search to Select"
+            optionFilterProp="children"
+            filterOption={(input, option) => {
+              return option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+            }
+            }
+            filterSort={(optionA, optionB) =>
+              optionA.children.toLowerCase().localeCompare(optionB.children.toLowerCase())
+            }
           >
-            {!editable ? "Edit Claim" : "Stop Editing"}
-          </Button>
+            {users.map(u => (
+              <Option value={u.handle}>{u.username || ""}</Option>
+            ))}
+          </Select>
+          {masterMintC()}
+          {nextStepButtonC(onClick)}
+          {devModeEnabled && populateClaimC()}
         </React.Fragment>
       ),
     },
@@ -1052,7 +1082,6 @@ export const GumdropView = (
         marginRight: 'auto',
       }}
     >
-      {asyncNeedsTemporalSigner && stepper}
       {steps[stepToUse].inner(handleNext)}
     </Stack>
   );
