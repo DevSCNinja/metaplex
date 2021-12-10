@@ -99,6 +99,9 @@ export const ExploreView = (
       <p className={"text-title"}>
         Explore Recipes
       </p>
+      <p className={"text-subtitle"}>
+        Recipes let you mix and match your current NFTs to craft new, rarer items.
+      </p>
       <ImageList cols={cols} variant="masonry">
         {props.recipeYields.map((r, idx) => {
           const yieldImage = (style) => (

@@ -1140,7 +1140,7 @@ export const FireballView = (
       <p className={"text-subtitle"}>
         You can burn {numIngredients} NFTs to redeem {recipes.length > 1 ?
         'one of these' : 'this'} limited edition{recipes.length > 1 ? 's' :
-        ''}. Click 'MINT' to burn the first {numIngredients} ingredients found
+        ''}. Click 'CRAFT' to burn the first {numIngredients} ingredients found
         in your wallet or pick and choose below!
       </p>
       <ImageList cols={cols}>
@@ -1237,7 +1237,7 @@ export const FireballView = (
                     wrap();
                   }}
                 >
-                  Mint
+                  CRAFT
                 </Button>
               </ImageListItem>
             </div>
@@ -1257,7 +1257,7 @@ export const FireballView = (
       <Tooltip
         title="Manually add or remove ingredients by selecting mints"
         style={{
-          maxWidth: "200px",
+          maxWidth: "300px",
         }}
       >
         <span>
@@ -1290,7 +1290,7 @@ export const FireballView = (
             wrap();
           }}
         >
-          Submit Changes
+          Change Ingredients
         </Button>
         </span>
       </Tooltip>
