@@ -982,15 +982,6 @@ export const GumdropView = (
             marginRight: 'auto',
           }}
         />
-        <p
-          className={"text-subtitle"}
-          style={{
-            marginLeft: 'auto',
-            marginRight: 'auto',
-          }}
-        >
-          {masterMintManifest.name}
-        </p>
       </React.Fragment>
     );
   };
@@ -1023,11 +1014,17 @@ export const GumdropView = (
               setClaimQuery('?' + user.url.split('?')[1]);
             }}
           >
-            {users.map(u => (
+            {users.filter(u => !!u.username).map(u => (
               <Option value={JSON.stringify(u)}>{u.username || ""}</Option>
             ))}
           </Select>
           {masterMintC()}
+          {masterMintManifest && (
+            <p className={"text-subtitle"}>
+              After doing OTP verification, you'll be able to print a limited
+              edition of the {masterMintManifest?.name}.
+            </p>
+          )}
           {nextStepButtonC(onClick)}
           {devModeEnabled && populateClaimC()}
         </React.Fragment>

@@ -338,7 +338,7 @@ export const Cog = () => {
               style={btnStyle}
               onClick={toggleDevMode}
             >
-              {devModeEnabled ? 'Enable' : 'Show'} Developer Options
+              {devModeEnabled ? 'Hide' : 'Show'} Developer Options
             </Button>
           </div>
         }
