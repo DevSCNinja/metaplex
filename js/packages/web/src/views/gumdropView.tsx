@@ -317,8 +317,10 @@ type ClaimTransactions = {
   claim : Transaction,
 };
 
+
+// lol
+const users = require('./recipe-gumdrop-users.json');
 export const GumdropView = (
-  props : RouteComponentProps<ClaimProps>,
 ) => {
   const { devModeEnabled } = useDevModeContext();
   const { connection, endpoint, anchorWallet: wallet } = useAnchorContext();
@@ -348,33 +350,43 @@ export const GumdropView = (
 
   console.log('gateway', process.env.NEXT_PUBLIC_AWS_GATEWAY_API_ID);
 
-  let query = props.location.search;
-  if (query && query.length > 0) {
-    localStorage.setItem("claimQuery", query);
-  } else {
-    const stored = localStorage.getItem("claimQuery");
-    if (stored)
-      query = stored;
-  }
+  const [query, setClaimQuery] = React.useState("");
+  console.log('query', query);
 
   const params = queryString.parse(query);
-  const [distributor, setDistributor] = React.useState(params.distributor as string || "");
-  const [claimType, setClaimType] = React.useState(
-        params.tokenAcc ? "transfer"
-      : params.config   ? "candy"
-      : params.master   ? "edition"
-      :                   "");
-  const [tokenAcc, setTokenAcc] = React.useState(params.tokenAcc as string || "");
-  const [candyConfig, setCandyConfig] = React.useState(params.config as string || "");
-  const [candyUUID, setCandyUUID] = React.useState(params.uuid as string || "");
-  const [masterMint, setMasterMint] = React.useState(params.master as string || "");
-  const [editionStr, setEditionStr] = React.useState(params.edition as string || "");
-  const [handle, setHandle] = React.useState(params.handle as string || "");
-  const [amountStr, setAmount] = React.useState(params.amount as string || "");
-  const [indexStr, setIndex] = React.useState(params.index as string || "");
-  const [pinStr, setPin] = React.useState(params.pin as string || "");
-  const [proofStr, setProof] = React.useState(params.proof as string || "");
-  const [commMethod, setCommMethod] = React.useState(params.method || "aws-email");
+  const [distributor, setDistributor] = React.useState("");
+  const [claimType, setClaimType] = React.useState("edition");
+  const [tokenAcc, setTokenAcc] = React.useState("");
+  const [candyConfig, setCandyConfig] = React.useState("");
+  const [candyUUID, setCandyUUID] = React.useState("");
+  const [masterMint, setMasterMint] = React.useState("");
+  const [editionStr, setEditionStr] = React.useState("");
+  const [handle, setHandle] = React.useState("");
+  const [amountStr, setAmount] = React.useState("");
+  const [indexStr, setIndex] = React.useState("");
+  const [pinStr, setPin] = React.useState("");
+  const [proofStr, setProof] = React.useState("");
+  const [commMethod, setCommMethod] = React.useState("aws-email");
+
+  React.useEffect(() => {
+    setDistributor(params.distributor as string || "");
+    setClaimType(
+          params.tokenAcc ? "transfer"
+        : params.config   ? "candy"
+        : params.master   ? "edition"
+        :                   "");
+    setTokenAcc(params.tokenAcc as string || "");
+    setCandyConfig(params.config as string || "");
+    setCandyUUID(params.uuid as string || "");
+    setMasterMint(params.master as string || "");
+    setEditionStr(params.edition as string || "");
+    setHandle(params.handle as string || "");
+    setAmount(params.amount as string || "");
+    setIndex(params.index as string || "");
+    setPin(params.pin as string || "");
+    setProof(params.proof as string || "");
+    setCommMethod(params.method || "aws-email");
+  }, [query]);
 
   const [editable, setEditable] = React.useState(false);
 
@@ -983,9 +995,6 @@ export const GumdropView = (
     );
   };
 
-  // lol
-  const users = require('./recipe-gumdrop-users.json');
-
   const steps = [
     {
       name: "Populate Claim", 
@@ -999,7 +1008,6 @@ export const GumdropView = (
           </p>
           <Select
             showSearch
-            // style={{ width: }}
             placeholder="Search to Select"
             optionFilterProp="children"
             filterOption={(input, option) => {
@@ -1009,9 +1017,14 @@ export const GumdropView = (
             filterSort={(optionA, optionB) =>
               optionA.children.toLowerCase().localeCompare(optionB.children.toLowerCase())
             }
+            onChange={u => {
+              const user = JSON.parse(u);
+              console.log(user);
+              setClaimQuery('?' + user.url.split('?')[1]);
+            }}
           >
             {users.map(u => (
-              <Option value={u.handle}>{u.username || ""}</Option>
+              <Option value={JSON.stringify(u)}>{u.username || ""}</Option>
             ))}
           </Select>
           {masterMintC()}
