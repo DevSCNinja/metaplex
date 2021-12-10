@@ -971,7 +971,7 @@ export const GumdropView = (
     );
   };
 
-  const explorerLinkForAddress = (keyStr : PublicKey, shorten: boolean = true) => {
+  const explorerLinkForAddress = (keyStr : string, shorten: boolean = true) => {
     return (
       <HyperLink
         href={`https://explorer.solana.com/address/${keyStr}?cluster=${envFor(connection)}`}
@@ -1027,14 +1027,18 @@ export const GumdropView = (
             placeholder="Search to Select"
             optionFilterProp="children"
             filterOption={(input, option) => {
+              if (!option || !option.children) return false;
               return option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
-            }
-            }
-            filterSort={(optionA, optionB) =>
-              optionA.children.toLowerCase().localeCompare(optionB.children.toLowerCase())
-            }
+            }}
+            filterSort={(optionA, optionB) => {
+              if (!optionA || !optionA.children) return 1; // B first
+              if (!optionB || !optionB.children) return -1; // A first
+              return optionA.children.toLowerCase().localeCompare(optionB.children.toLowerCase());
+            }}
             onChange={u => {
-              const user = JSON.parse(u);
+              if (!u) return;
+              const user = JSON.parse(u as string);
+              if (!user.url) return;
               console.log(user);
               setClaimQuery('?' + user.url.split('?')[1]);
             }}
