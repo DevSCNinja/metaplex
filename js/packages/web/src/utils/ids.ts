@@ -22,3 +22,7 @@ export const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
 export const GUMDROP_PROGRAM_ID = new PublicKey(
   'gdrpGjVffourzkdDRrQmySw4aTHr8a3xmQzzxSwFD1a'
 );
+
+export const GUMDROP_TEMPORAL_SIGNER = new PublicKey(
+  'MSv9H2sMceAzccBganUXwGq3GXgqYAstmZAbFDZYbAV'
+);

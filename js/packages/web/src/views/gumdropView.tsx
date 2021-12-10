@@ -348,6 +348,8 @@ export const GumdropView = (
     wrap();
   }, [wallet]);
 
+  console.log('gateway', process.env.NEXT_PUBLIC_AWS_GATEWAY_API_ID);
+
   let query = props.location.search;
   if (query && query.length > 0) {
     localStorage.setItem("claimQuery", query);
@@ -425,7 +427,7 @@ export const GumdropView = (
     wrap();
   }, [masterMint, connection]);
 
-  const lambdaAPIEndpoint = "https://{PLACEHOLDER-API-ID}.execute-api.us-east-2.amazonaws.com/send-OTP";
+  const lambdaAPIEndpoint = `https://${process.env.NEXT_PUBLIC_AWS_GATEWAY_API_ID}.execute-api.us-east-2.amazonaws.com/send-OTP`;
 
   const skipAWSWorkflow = false;
 
@@ -473,6 +475,7 @@ export const GumdropView = (
       if (isNaN(edition)) {
         throw new Error(`Could not parse edition ${editionStr}`);
       }
+      let newMint;
       [instructions, pdaSeeds, newMint] = await buildEditionClaim(
         program, wallet.publicKey, distributorKey, distributorInfo,
         masterMint, edition,
@@ -738,15 +741,15 @@ export const GumdropView = (
         color="success"
         style={{ width: "100%", borderRadius: "8px" }}
         onClick={(e) => {
-          if (!wallet || !program || loading) {
-            throw new Error('Wallet not connected');
-          }
-          if (!OTPStr) {
-            throw new Error('No OTP provided');
-          }
           setLoading(true);
           const wrap = async () => {
             try {
+              if (!wallet || !program || loading) {
+                throw new Error('Wallet not connected');
+              }
+              if (!OTPStr) {
+                throw new Error('No OTP provided');
+              }
               await verifyOTP(e, transaction);
               setLoading(false);
               onClick();
@@ -755,7 +758,7 @@ export const GumdropView = (
                 message: "Claim failed",
                 description: `${err}`,
               });
-              setNewMintStr("");
+              // setNewMintStr("");
               setLoading(false);
             }
           };
@@ -864,6 +867,7 @@ export const GumdropView = (
           onChange={(e) => setProof(e.target.value)}
           disabled={!editable}
           style={{ fontFamily: 'Monospace' }}
+          rows={proofStr.length / 80}
         />
       </label>
     </React.Fragment>
@@ -875,14 +879,11 @@ export const GumdropView = (
       <Button
         style={{ width: "100%", borderRadius: "8px" }}
         onClick={(e) => {
-          if (!wallet || !program || loading) {
-            throw new Error('Wallet not connected');
-          }
           setLoading(true);
           const wrap = async () => {
             try {
-              if (!program) {
-                throw new Error(`Internal error: no program loaded for claim`);
+              if (!wallet || !program || loading) {
+                throw new Error('Wallet not connected');
               }
               const needsTemporalSigner = await fetchNeedsTemporalSigner(
                   program, distributor, indexStr, claimType);
@@ -999,7 +1000,15 @@ export const GumdropView = (
   ];
   if (asyncNeedsTemporalSigner) {
     steps.push(
-      { name: "Verify OTP"    , inner: verifyOTPC     }
+      {
+        name: "Verify OTP",
+        inner: (onClick) => (
+          <React.Fragment>
+            {verifyOTPC(onClick)}
+            {masterMintC()}
+          </React.Fragment>
+        ),
+      }
     );
   }
 
