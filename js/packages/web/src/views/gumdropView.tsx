@@ -36,6 +36,7 @@ import {
   chunks,
   decodeMetadata,
   notify,
+  shortenAddress,
   useLocalStorageState,
 } from "@oyster/common";
 import BN from 'bn.js';
@@ -970,6 +971,21 @@ export const GumdropView = (
     );
   };
 
+  const explorerLinkForAddress = (keyStr : PublicKey, shorten: boolean = true) => {
+    return (
+      <HyperLink
+        href={`https://explorer.solana.com/address/${keyStr}?cluster=${envFor(connection)}`}
+        target="_blank"
+        rel="noreferrer"
+        title={keyStr}
+        underline="none"
+        sx={{ fontFamily: 'Monospace' }}
+      >
+        {shorten ? shortenAddress(keyStr) : keyStr}
+      </HyperLink>
+    );
+  };
+
   const masterMintC = () => {
     if (!masterMintManifest) return;
     return (
@@ -982,6 +998,15 @@ export const GumdropView = (
             marginRight: 'auto',
           }}
         />
+        <div
+          style={{
+            marginTop: 0,
+            marginLeft: 'auto',
+            marginRight: 'auto',
+          }}
+        >
+        {explorerLinkForAddress(masterMint)}
+        </div>
       </React.Fragment>
     );
   };
