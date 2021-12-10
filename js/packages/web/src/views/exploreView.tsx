@@ -73,6 +73,7 @@ export const ExploreView = (
   const columnWidth = (maxWidth - columnsGap * (maxColumns - 1)) / maxColumns;
 
   const tilePadding = 20;
+  const imageWidth = columnWidth - tilePadding * 2;
 
   const { width } = useWindowDimensions();
   const sizedColumns = (width : number) => {
@@ -107,7 +108,8 @@ export const ExploreView = (
               className={"fullAspectRatio"}
               style={{
                 ...style,
-                objectFit: 'cover',
+                height: imageWidth,
+                width: imageWidth,
               }}
             />
           );
@@ -127,13 +129,22 @@ export const ExploreView = (
                       style={{
                         color: 'inherit',
                         display: 'block',
-                        height: '100%',
+                        height: imageWidth,
                       }}
                     >
                       {yieldImage({})}
                     </Link>
                   )
-                  : yieldImage({ filter: 'grayscale(100%)' })
+                  : (
+                    <div
+                      style={{
+                        display: 'block',
+                        height: imageWidth,
+                      }}
+                    >
+                      {yieldImage({ filter: 'grayscale(100%)' })}
+                    </div>
+                  )
                 }
                 <ImageListItemBar
                   title={r.name}

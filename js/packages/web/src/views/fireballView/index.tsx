@@ -1158,6 +1158,10 @@ export const FireballView = (
                 <CachedImageContent
                   uri={r.image}
                   className={"fullAspectRatio"}
+                  style={{
+                    height: imageWidth,
+                    width: imageWidth,
+                  }}
                 />
                 <ImageListItemBar
                   title={r.name}
@@ -1325,7 +1329,6 @@ export const FireballView = (
               <ImageListItem>
                 <CachedImageContent
                   uri={ingredients[ingredient]}
-                  className={"fullAspectRatio"}
                   style={{
                     ...imgBorderStyle,
                     padding: inBatch ? 10 : imgBorderStyle.padding,

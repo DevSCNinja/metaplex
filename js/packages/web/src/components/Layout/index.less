@@ -132,5 +132,10 @@ section#main-layout.ant-layout {
 }
 
 .fullAspectRatio > img {
-  aspect-ratio: 1 / 1,
+  object-fit: cover;
+  display: block;
+  position: absolute;
+  min-width: 100%;
+  min-height: 100%;
+  // aspect-ratio: 1 / 1,
 }
