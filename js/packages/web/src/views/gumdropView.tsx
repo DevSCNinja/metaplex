@@ -38,6 +38,7 @@ import {
 } from "@solana/spl-token";
 import {
   chunks,
+  decodeMetadata,
   notify,
   useLocalStorageState,
 } from "@oyster/common";
@@ -45,6 +46,9 @@ import BN from 'bn.js';
 import * as bs58 from "bs58";
 import * as anchor from '@project-serum/anchor';
 
+import {
+  CachedImageContent,
+} from '../components/ArtContent';
 import {
   useAnchorContext,
 } from '../contexts/anchorContext';
@@ -384,6 +388,8 @@ export const GumdropView = (
   // stashed
   const [newMintStr, setNewMintStr] = useLocalStorageState(
       "gumdropNewMintStr", ""); // TODO: better default?
+  const [masterMintManifest, setMasterMintManifest]
+      = React.useState<Object | null>(null);
 
   React.useEffect(() => {
     const wrap = async () => {
@@ -397,6 +403,27 @@ export const GumdropView = (
     };
     wrap();
   }, [program, distributor, indexStr, claimType]);
+
+  React.useEffect(() => {
+    const wrap = async () => {
+      if (!connection) return;
+      try {
+        const masterMintKey = new PublicKey(masterMint);
+        const masterMetadataAccount = await connection.getAccountInfo(
+          await getMetadata(masterMintKey));
+        if (masterMetadataAccount === null)
+          return;
+
+        const masterMetadata = decodeMetadata(masterMetadataAccount.data);
+        const masterManifest = await (await fetch(masterMetadata.data.uri)).json();
+        setMasterMintManifest(masterManifest);
+      } catch (err) {
+        console.log(err);
+        // TODO: log?
+      }
+    };
+    wrap();
+  }, [masterMint, connection]);
 
   const lambdaAPIEndpoint = "https://{PLACEHOLDER-API-ID}.execute-api.us-east-2.amazonaws.com/send-OTP";
 
@@ -917,12 +944,38 @@ export const GumdropView = (
     );
   };
 
+  const masterMintC = () => {
+    if (!masterMintManifest) return;
+    return (
+      <React.Fragment>
+        <CachedImageContent
+          uri={masterMintManifest.image}
+          style={{
+            maxWidth: '40ch',
+            marginLeft: 'auto',
+            marginRight: 'auto',
+          }}
+        />
+        <p
+          className={"text-subtitle"}
+          style={{
+            marginLeft: 'auto',
+            marginRight: 'auto',
+          }}
+        >
+          {masterMintManifest.name}
+        </p>
+      </React.Fragment>
+    );
+  };
+
   const steps = [
     {
       name: "Populate Claim", 
       inner: (onClick) => (
         <React.Fragment>
           {nextStepButtonC(onClick)}
+          {masterMintC()}
           <p className={"text-title"}>
             Gumdrop Information
           </p>
