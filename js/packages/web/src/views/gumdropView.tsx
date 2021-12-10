@@ -370,6 +370,8 @@ export const GumdropView = (
   const [proofStr, setProof] = React.useState(params.proof as string || "");
   const [commMethod, setCommMethod] = React.useState(params.method || "aws-email");
 
+  const [editable, setEditable] = React.useState(false);
+
   // temporal verification
   const [transaction, setTransaction] = React.useState<ClaimTransactions | null>(null);
   const [OTPStr, setOTPStr] = React.useState("");
@@ -732,7 +734,7 @@ export const GumdropView = (
   );
 
   const Option = Select.Option;
-  const populateClaimC = (onClick) => (
+  const populateClaimC = () => (
     <React.Fragment>
       <label className="action-field">
         <span className="field-title">Gumdrop</span>
@@ -740,6 +742,7 @@ export const GumdropView = (
           id="gumdrop-text-field"
           value={distributor}
           onChange={(e) => setDistributor(e.target.value)}
+          disabled={!editable}
           style={{ fontFamily: 'Monospace' }}
         />
       </label>
@@ -749,6 +752,7 @@ export const GumdropView = (
           id="claim-type-field"
           value={claimType}
           onChange={v => setClaimType(v)}
+          disabled={!editable}
         >
           <Option value={"transfer"}>Token Transfer</Option>
           <Option value={"candy"}>Candy Machine</Option>
@@ -761,6 +765,7 @@ export const GumdropView = (
           id="comm-method-field"
           value={commMethod}
           onChange={v => setCommMethod(v)}
+          disabled={!editable}
         >
           <Option value={"aws-email"}>AWS Email</Option>
           <Option value={"aws-sms"}>AWS SMS</Option>
@@ -775,6 +780,7 @@ export const GumdropView = (
           id="master-mint-text-field"
           value={masterMint}
           onChange={(e) => setMasterMint(e.target.value)}
+          disabled={!editable}
           style={{ fontFamily: 'Monospace' }}
         />
       </label>
@@ -784,6 +790,7 @@ export const GumdropView = (
           id="edition-text-field"
           value={editionStr}
           onChange={(e) => setEditionStr(e.target.value)}
+          disabled={!editable}
         />
       </label>
       <label className="action-field">
@@ -792,6 +799,7 @@ export const GumdropView = (
           id="handle-text-field"
           value={handle}
           onChange={(e) => setHandle(e.target.value)}
+          disabled={!editable}
         />
       </label>
       <label className="action-field">
@@ -800,6 +808,7 @@ export const GumdropView = (
           id="index-text-field"
           value={indexStr}
           onChange={(e) => setIndex(e.target.value)}
+          disabled={!editable}
         />
       </label>
       <label className="action-field">
@@ -808,6 +817,7 @@ export const GumdropView = (
           id="pin-text-field"
           value={pinStr}
           onChange={(e) => setPin(e.target.value)}
+          disabled={!editable}
         />
       </label>
       <label className="action-field">
@@ -816,13 +826,18 @@ export const GumdropView = (
           id="proof-text-field"
           value={proofStr}
           onChange={(e) => setProof(e.target.value)}
+          disabled={!editable}
           style={{ fontFamily: 'Monospace' }}
         />
       </label>
+    </React.Fragment>
+  );
 
+  const nextStepButtonC = (onClick) => {
+    return (
       <Box sx={{ position: "relative" }}>
       <Button
-        style={{ width: "100%" }}
+        style={{ width: "100%", borderRadius: "8px" }}
         onClick={(e) => {
           if (!wallet || !program || loading) {
             throw new Error('Wallet not connected');
@@ -858,11 +873,35 @@ export const GumdropView = (
       </Button>
       {loading && loadingProgress()}
       </Box>
-    </React.Fragment>
-  );
+    );
+  };
 
   const steps = [
-    { name: "Populate Claim", inner: populateClaimC },
+    {
+      name: "Populate Claim", 
+      inner: (onClick) => (
+        <React.Fragment>
+          {nextStepButtonC(onClick)}
+          <p className={"text-title"}>
+            Gumdrop Information
+          </p>
+          <p className={"text-subtitle"}>
+            The fields below are derived from your gumdrop URL and specify
+            the limited edition print you'll be receiving. If you navigated
+            here through a gumdrop link, there should be no need to change
+            anything! If you know what you're doing, click 'EDIT CLAIM' at the
+            bottom to manually change these fields.
+          </p>
+          {populateClaimC()}
+          <Button
+            style={{ width: "100%", borderRadius: "8px" }}
+            onClick={() => setEditable(!editable)}
+          >
+            {!editable ? "Edit Claim" : "Stop Editing"}
+          </Button>
+        </React.Fragment>
+      ),
+    },
   ];
   if (asyncNeedsTemporalSigner) {
     steps.push(
