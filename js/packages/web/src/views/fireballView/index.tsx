@@ -1335,7 +1335,14 @@ export const FireballView = (
                 />
                 <ImageListItemBar
                   title={(
-                    <div>
+                    <div
+                      style={{
+                        maxWidth: columnWidth
+                            - tilePadding * 2
+                            - 40 * (matchingIngredients.length > 1 ? 3 : 1),
+                        overflow: 'wrap',
+                      }}
+                    >
                       {ingredient}
                     </div>
                   )}

@@ -5,7 +5,6 @@ import queryString from 'query-string';
 import {
   Button,
   Input,
-  Option,
   Select,
   Steps,
 } from 'antd';
@@ -16,9 +15,6 @@ import {
   Stack,
 } from "@mui/material";
 
-import {
-  useAnchorWallet,
-} from "@solana/wallet-adapter-react";
 import {
   AccountMeta,
   Connection as RPCConnection,
@@ -53,16 +49,12 @@ import {
   useAnchorContext,
 } from '../contexts/anchorContext';
 import {
-  CANDY_MACHINE_ID,
   GUMDROP_PROGRAM_ID,
   GUMDROP_TEMPORAL_SIGNER,
   SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
   TOKEN_METADATA_PROGRAM_ID,
 } from "../utils/ids";
 import {
-  getCandyMachine,
-  getCandyMachineAddress,
-  getATAChecked,
   getEdition,
   getEditionMarkerPda,
   getMetadata,
@@ -91,16 +83,18 @@ const walletKeyOrPda = async (
       throw new Error(`Invalid claimant wallet handle ${err}`);
     }
   } else {
-    const seeds = [
+    const seeds : Array<Buffer> = [
       seed.toBuffer(),
       Buffer.from(handle),
       Buffer.from(pin.toArray("le", 4)),
     ];
 
+    const splitHandle = chunks([...seeds[1]], 32).map(v => Buffer.from(v));
+
     const [claimantPda, ] = await PublicKey.findProgramAddress(
       [
         seeds[0],
-        ...chunks(seeds[1], 32),
+        ...splitHandle,
         seeds[2],
       ],
       GUMDROP_PROGRAM_ID
@@ -391,14 +385,14 @@ export const GumdropView = (
   const [newMintStr, setNewMintStr] = useLocalStorageState(
       "gumdropNewMintStr", ""); // TODO: better default?
   const [masterMintManifest, setMasterMintManifest]
-      = React.useState<Object | null>(null);
+      = React.useState<any | null>(null);
 
   React.useEffect(() => {
     const wrap = async () => {
       try {
         if (!program) return;
         setNeedsTemporalSigner(await fetchNeedsTemporalSigner(
-          program, distributor, indexStr, claimType));
+          program, distributor, indexStr));
       } catch {
         // TODO: log?
       }
@@ -703,7 +697,7 @@ export const GumdropView = (
     setTransaction(null);
     try {
       setNeedsTemporalSigner(await fetchNeedsTemporalSigner(
-        program, distributor, indexStr, claimType));
+        program, distributor, indexStr));
     } catch {
       // TODO: log?
     }
@@ -737,7 +731,6 @@ export const GumdropView = (
 
       <Box sx={{ position: "relative" }}>
       <Button
-        variant="contained"
         color="success"
         style={{ width: "100%", borderRadius: "8px" }}
         onClick={(e) => {
@@ -886,7 +879,7 @@ export const GumdropView = (
                 throw new Error('Wallet not connected');
               }
               const needsTemporalSigner = await fetchNeedsTemporalSigner(
-                  program, distributor, indexStr, claimType);
+                  program, distributor, indexStr);
               const transaction = await sendOTP(e);
               if (!needsTemporalSigner) {
                 await verifyOTP(e, transaction);
