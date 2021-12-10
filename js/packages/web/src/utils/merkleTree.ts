@@ -12,7 +12,7 @@ export class MerkleTree {
 
     let hashes;
     if (!leaf_flags) {
-      hashes = this.leafs.map(MerkleTree.nodeHash);
+      hashes = this.leafs.map((l) => MerkleTree.nodeHash(l, 0));
     } else {
       hashes = this.leafs.map((l, idx) => MerkleTree.nodeHash(l, leaf_flags[idx]));
     }
