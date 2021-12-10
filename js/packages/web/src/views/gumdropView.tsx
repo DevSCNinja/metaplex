@@ -1,5 +1,5 @@
 import React from "react";
-import { RouteComponentProps, } from "react-router-dom";
+import { RouteComponentProps, Link } from "react-router-dom";
 import queryString from 'query-string';
 
 import {
@@ -39,6 +39,7 @@ import {
 import {
   chunks,
   notify,
+  useLocalStorageState,
 } from "@oyster/common";
 import BN from 'bn.js';
 import * as bs58 from "bs58";
@@ -64,6 +65,7 @@ import {
 } from "../utils/accounts";
 import { MerkleTree } from "../utils/merkleTree";
 import {
+  envFor,
   explorerLinkFor,
   sendSignedTransaction,
 } from "../utils/transactions";
@@ -174,7 +176,7 @@ const buildEditionClaim = async (
   amount : number,
   index : number,
   pin : BN | null,
-) : Promise<[ClaimInstructions, Array<Buffer>, Array<Keypair>]> => {
+) : Promise<[ClaimInstructions, Array<Buffer>, Keypair]> => {
 
   let masterMintKey : PublicKey;
   try {
@@ -275,7 +277,7 @@ const buildEditionClaim = async (
     }
   );
 
-  return [{ setup, claim: [claim] }, pdaSeeds, [newMint]];
+  return [{ setup, claim: [claim] }, pdaSeeds, newMint];
 }
 
 const fetchDistributor = async (
@@ -379,6 +381,10 @@ export const GumdropView = (
   // async computed
   const [asyncNeedsTemporalSigner, setNeedsTemporalSigner] = React.useState<boolean>(true);
 
+  // stashed
+  const [newMintStr, setNewMintStr] = useLocalStorageState(
+      "gumdropNewMintStr", ""); // TODO: better default?
+
   React.useEffect(() => {
     const wrap = async () => {
       try {
@@ -440,11 +446,13 @@ export const GumdropView = (
       if (isNaN(edition)) {
         throw new Error(`Could not parse edition ${editionStr}`);
       }
-      [instructions, pdaSeeds, extraSigners] = await buildEditionClaim(
+      [instructions, pdaSeeds, newMint] = await buildEditionClaim(
         program, wallet.publicKey, distributorKey, distributorInfo,
         masterMint, edition,
         proof, handle, amount, index, pin
       );
+      setNewMintStr(newMint.publicKey.toBase58());
+      extraSigners = [newMint];
     } else {
       throw new Error(`Unsupported claim type ${claimType}`);
     }
@@ -701,7 +709,7 @@ export const GumdropView = (
       <Button
         variant="contained"
         color="success"
-        style={{ width: "100%" }}
+        style={{ width: "100%", borderRadius: "8px" }}
         onClick={(e) => {
           if (!wallet || !program || loading) {
             throw new Error('Wallet not connected');
@@ -720,6 +728,7 @@ export const GumdropView = (
                 message: "Claim failed",
                 description: `${err}`,
               });
+              setNewMintStr("");
               setLoading(false);
             }
           };
@@ -876,6 +885,38 @@ export const GumdropView = (
     );
   };
 
+  const CongratsC = (onClick) => {
+    return (
+      <>
+        <div className="waiting-title">Congratulations, you claimed a Gumdrop!</div>
+        <Stack spacing={1} className="congrats-button-container">
+          <Button
+            className="metaplex-button"
+          >
+            <Link to="/">Explore Recipes</Link>
+          </Button>
+          {newMintStr.length > 0 && <Button
+            className="metaplex-button"
+          >
+            <HyperLink
+              href={`https://explorer.solana.com/address/${newMintStr}?cluster=${envFor(connection)}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              View your Gumdrop
+            </HyperLink>
+          </Button>}
+          <Button
+            className="metaplex-button"
+            onClick={onClick}
+          >
+            <span>Claim Another</span>
+          </Button>
+        </Stack>
+      </>
+    );
+  };
+
   const steps = [
     {
       name: "Populate Claim", 
@@ -889,7 +930,7 @@ export const GumdropView = (
             The fields below are derived from your gumdrop URL and specify
             the limited edition print you'll be receiving. If you navigated
             here through a gumdrop link, there should be no need to change
-            anything! If you know what you're doing, click 'EDIT CLAIM' at the
+            anything! If you know what you're doing, click 'Edit Claim' at the
             bottom to manually change these fields.
           </p>
           {populateClaimC()}
@@ -908,6 +949,10 @@ export const GumdropView = (
       { name: "Verify OTP"    , inner: verifyOTPC     }
     );
   }
+
+  steps.push(
+    { name: "Enjoy your Gumdrop", inner: CongratsC }
+  );
 
   // TODO: better interaction between setting `asyncNeedsTemporalSigner` and
   // the stepper... this is pretty jank
@@ -954,14 +999,6 @@ export const GumdropView = (
     >
       {asyncNeedsTemporalSigner && stepper}
       {steps[stepToUse].inner(handleNext)}
-      {stepToUse > 0 && (
-        <Button
-          color="info"
-          onClick={handleBack}
-        >
-          Back
-        </Button>
-      )}
     </Stack>
   );
 };
