@@ -7,6 +7,7 @@ import { Providers } from './providers';
 import { AdminView } from './views/admin';
 import { FireballView } from "./views/fireballView";
 import { ExploreView } from "./views/exploreView";
+import { GumdropView } from "./views/gumdropView";
 
 const ScrollToTop = ({ history }) => {
   React.useEffect(() => {
@@ -100,6 +101,7 @@ export function Routes() {
                 />
               )
             } />
+            <Route path="/gumdrop" component={GumdropView} />
             <Route path="/" component={
               () => (
                 <ExploreView

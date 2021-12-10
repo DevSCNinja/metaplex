@@ -18,3 +18,7 @@ export const SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID = new PublicKey(
 export const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
   'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s',
 );
+
+export const GUMDROP_PROGRAM_ID = new PublicKey(
+  'gdrpGjVffourzkdDRrQmySw4aTHr8a3xmQzzxSwFD1a'
+);
