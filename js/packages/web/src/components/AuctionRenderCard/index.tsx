@@ -1,24 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Card, CardProps } from 'antd';
-import {
-  formatTokenAmount,
-  CountdownState,
-  PriceFloorType,
-  fromLamports,
-  useMint,
-} from '@oyster/common';
 import { ArtContent } from '../ArtContent';
-import {
-  AuctionView,
-  AuctionViewState,
-  useArt,
-  useBidsForAuction,
-} from '../../hooks';
+import { AuctionView, useArt, useCreators } from '../../hooks';
 import { AmountLabel } from '../AmountLabel';
-import { useHighestBidForAuction } from '../../hooks';
-import { BN } from 'bn.js';
+import { MetaAvatar } from '../MetaAvatar';
+import { AuctionCountdown } from '../AuctionNumbers';
 
-const { Meta } = Card;
+import { useAuctionStatus } from './hooks/useAuctionStatus';
+import { useTokenList } from '../../contexts/tokenList';
+
 export interface AuctionCard extends CardProps {
   auctionView: AuctionView;
 }
@@ -27,106 +17,50 @@ export const AuctionRenderCard = (props: AuctionCard) => {
   const { auctionView } = props;
   const id = auctionView.thumbnail.metadata.pubkey;
   const art = useArt(id);
+  const creators = useCreators(auctionView);
   const name = art?.title || ' ';
-  const [state, setState] = useState<CountdownState>();
-  const bids = useBidsForAuction(auctionView.auction.pubkey);
-  const mintInfo = useMint(auctionView.auction.info.tokenMint);
 
-  const participationFixedPrice =
-    auctionView.auctionManager.participationConfig?.fixedPrice || 0;
-  const participationOnly = auctionView.auctionManager.numWinners.eq(new BN(0));
-  const priceFloor =
-    auctionView.auction.info.priceFloor.type === PriceFloorType.Minimum
-      ? auctionView.auction.info.priceFloor.minPrice?.toNumber() || 0
-      : 0;
-  const isUpcoming = auctionView.state === AuctionViewState.Upcoming;
-
-  const winningBid = useHighestBidForAuction(auctionView.auction.pubkey);
-  const ended = !auctionView.isInstantSale &&
-    state?.hours === 0 && state?.minutes === 0 && state?.seconds === 0;
-
-  let currentBid: number | string = 0;
-  let label = '';
-  if (isUpcoming || bids) {
-    label = ended
-      ? 'Ended'
-      : auctionView.isInstantSale
-      ? 'Price'
-      : 'Starting bid';
-    currentBid = fromLamports(
-      participationOnly ? participationFixedPrice : priceFloor,
-      mintInfo,
-    );
-  }
-
-  if (!isUpcoming && bids.length > 0) {
-    label = ended ? 'Winning bid' : 'Current bid';
-    currentBid =
-      winningBid && Number.isFinite(winningBid.info.lastBid?.toNumber())
-        ? formatTokenAmount(winningBid.info.lastBid)
-        : 'No Bid';
-  }
-
-  const auction = auctionView.auction.info;
-  useEffect(() => {
-    const calc = () => {
-      setState(auction.timeToEnd());
-    };
-
-    const interval = setInterval(() => {
-      calc();
-    }, 1000);
-
-    calc();
-    return () => clearInterval(interval);
-  }, [auction, setState]);
+  const tokenInfo = useTokenList().mainnetTokens.filter(m=>m.address == auctionView.auction.info.tokenMint)[0]
+  const { status, amount } = useAuctionStatus(auctionView);
 
   const card = (
-    <Card
-      hoverable={true}
-      className={`art-card`}
-      cover={
-        <>
-          <ArtContent
-            className="auction-image no-events"
-            preview={false}
-            pubkey={id}
-            allowMeshRender={false}
-          />
-        </>
-      }
-    >
-      <Meta
-        title={`${name}`}
-        description={
-          <>
-            <h4 style={{ marginBottom: 0 }}>{label}</h4>
-            <div className="bids">
-              <AmountLabel
-                style={{ marginBottom: 10 }}
-                containerStyle={{ flexDirection: 'row' }}
-                title={label}
-                amount={currentBid}
-              />
-            </div>
-            {/* {endAuctionAt && hasTimer && (
-              <div className="cd-container">
-                {hours === 0 && minutes === 0 && seconds === 0 ? (
-                  <div className="cd-title">Finished</div>
-                ) : (
-                  <>
-                    <div className="cd-title">Ending in</div>
-                    <div className="cd-time">
-                      {hours}h {minutes}m {seconds}s
-                      pants
-                    </div>
-                  </>
-                )}
-              </div>
-            )} */}
-          </>
-        }
-      />
+    <Card hoverable={true} className={`auction-render-card`} bordered={false}>
+      <div className={'card-art-info'}>
+        <div className="auction-gray-wrapper">
+          <div className={'card-artist-info'}>
+            <MetaAvatar creators={creators.length ? [creators[0]] : undefined} />
+            <span className={'artist-name'}>
+              {creators[0]?.name ||
+                creators[0]?.address?.substr(0, 6) ||
+                'Go to auction'}
+              ...
+            </span>
+          </div>
+          <div className={'art-content-wrapper'}>
+            <ArtContent
+              className="auction-image no-events"
+              preview={false}
+              pubkey={id}
+              allowMeshRender={false}
+            />
+          </div>
+          <div className={'art-name'}>{name}</div>
+          <div className="auction-info-container">
+            <div className={'info-message'}>ENDING IN</div>
+            <AuctionCountdown auctionView={auctionView} labels={false} />
+          </div>
+        </div>
+      </div>
+      <div className="card-bid-info">
+        <span className={'text-uppercase info-message'}>{status}</span>
+        <AmountLabel
+          containerStyle={{ flexDirection: 'row' }}
+          title={status}
+          amount={amount}
+          iconSize={24}
+          tokenInfo={tokenInfo}
+        />
+      </div>
     </Card>
   );
 

@@ -1,5 +1,10 @@
 use crate::*;
 use borsh::BorshSerialize;
+use metaplex_token_metadata::{
+    id,
+    instruction::{self, MetadataInstruction, MintNewEditionFromMasterEditionViaTokenArgs},
+    state::{EDITION, EDITION_MARKER_BIT_SIZE, PREFIX},
+};
 use solana_program::{
     borsh::try_from_slice_unchecked,
     instruction::{AccountMeta, Instruction},
@@ -9,11 +14,6 @@ use solana_program_test::*;
 use solana_sdk::{
     pubkey::Pubkey, signature::Signer, signer::keypair::Keypair, transaction::Transaction,
     transport,
-};
-use spl_token_metadata::{
-    id,
-    instruction::{self, MetadataInstruction, MintNewEditionFromMasterEditionViaTokenArgs},
-    state::{EDITION, EDITION_MARKER_BIT_SIZE, PREFIX},
 };
 
 #[derive(Debug)]
@@ -78,7 +78,7 @@ impl EditionMarker {
     pub async fn get_data(
         &self,
         context: &mut ProgramTestContext,
-    ) -> spl_token_metadata::state::EditionMarker {
+    ) -> metaplex_token_metadata::state::EditionMarker {
         let account = get_account(context, &self.pubkey).await;
         try_from_slice_unchecked(&account.data).unwrap()
     }
@@ -90,15 +90,16 @@ impl EditionMarker {
         safety_deposit_box: &Pubkey,
         store: &Pubkey,
     ) -> transport::Result<()> {
-        let spl_token_vault_id = spl_token_vault::id();
+        let metaplex_token_vault_id = metaplex_token_vault::id();
         let vault_pubkey = vault.keypair.pubkey();
 
         let vault_mint_seeds = &[
             PREFIX.as_bytes(),
-            spl_token_vault_id.as_ref(),
+            metaplex_token_vault_id.as_ref(),
             vault_pubkey.as_ref(),
         ];
-        let (_authority, _) = Pubkey::find_program_address(vault_mint_seeds, &spl_token_vault_id);
+        let (_authority, _) =
+            Pubkey::find_program_address(vault_mint_seeds, &metaplex_token_vault_id);
 
         create_mint(context, &self.mint, &context.payer.pubkey(), None).await?;
         create_token_account(
@@ -136,7 +137,7 @@ impl EditionMarker {
                     context.payer.pubkey(),
                     self.metadata_pubkey,
                     spl_token::id(),
-                    spl_token_vault::id(),
+                    metaplex_token_vault::id(),
                     self.edition,
                 ),
             ],
@@ -196,7 +197,7 @@ impl EditionMarker {
         context: &mut ProgramTestContext,
     ) -> transport::Result<()> {
         let fake_token_program = Keypair::new();
-        let program_id = spl_token_metadata::id();
+        let program_id = metaplex_token_metadata::id();
 
         let edition_number = self.edition.checked_div(EDITION_MARKER_BIT_SIZE).unwrap();
         let as_string = edition_number.to_string();

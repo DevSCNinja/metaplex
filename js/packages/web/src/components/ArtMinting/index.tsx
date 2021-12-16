@@ -162,6 +162,7 @@ export const ArtMinting = ({ id, onMint }: ArtMintingProps) => {
             cancelButtonProps={{ disabled: isLoading }}
             onOk={mint}
             onCancel={() => setShowMintModal(false)}
+            className="art-minting-modal"
           >
             <Form.Item
               style={{
@@ -170,7 +171,7 @@ export const ArtMinting = ({ id, onMint }: ArtMintingProps) => {
                 paddingTop: 30,
                 marginBottom: 4,
               }}
-              label={<h3>Mint to</h3>}
+              label={<h3 style={{ color: 'white' }}>Mint to</h3>}
               labelAlign="left"
               colon={false}
               validateStatus={mintingDestinationErr ? 'error' : 'success'}
@@ -191,7 +192,9 @@ export const ArtMinting = ({ id, onMint }: ArtMintingProps) => {
                 flexDirection: 'column',
                 paddingTop: 30,
               }}
-              label={<h3>Number of editions to mint</h3>}
+              label={
+                <h3 style={{ color: 'white' }}>Number of editions to mint</h3>
+              }
               labelAlign="left"
               colon={false}
             >

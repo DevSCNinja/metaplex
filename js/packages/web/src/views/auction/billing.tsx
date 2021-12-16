@@ -24,6 +24,7 @@ import {
   StringPublicKey,
   toPublicKey,
   WalletSigner,
+  WRAPPED_SOL_MINT,
 } from '@oyster/common';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useMeta } from '../../contexts';
@@ -374,7 +375,10 @@ export const InnerBillingView = ({
   const art = useArt(id);
   const balance = useUserBalance(auctionView.auction.info.tokenMint);
   const [escrowBalance, setEscrowBalance] = useState<number | undefined>();
-  const { whitelistedCreatorsByCreator } = useMeta();
+  const { whitelistedCreatorsByCreator, pullBillingPage } = useMeta();
+  useEffect(() => {
+    pullBillingPage(id);
+  }, []);
   const [escrowBalanceRefreshCounter, setEscrowBalanceRefreshCounter] =
     useState(0);
 
@@ -421,7 +425,7 @@ export const InnerBillingView = ({
             <br />
             <div className="info-header">TOTAL AUCTION VALUE</div>
             <div className="escrow">
-              ◎
+              {auctionView.auctionManager.acceptPayment == WRAPPED_SOL_MINT.toBase58()? "◎": ""}
               {fromLamports(
                 totalWinnerPayments + participationPossibleTotal,
                 mint,
@@ -430,7 +434,7 @@ export const InnerBillingView = ({
             <br />
             <div className="info-header">TOTAL AUCTION REDEEMED VALUE</div>
             <div className="escrow">
-              ◎
+              {auctionView.auctionManager.acceptPayment == WRAPPED_SOL_MINT.toBase58()? "◎": ""}
               {fromLamports(
                 totalWinnerPayments +
                   participationPossibleTotal -
@@ -443,7 +447,7 @@ export const InnerBillingView = ({
               TOTAL COLLECTED BY ARTISTS AND AUCTIONEER
             </div>
             <div className="escrow">
-              ◎
+              {auctionView.auctionManager.acceptPayment == WRAPPED_SOL_MINT.toBase58()? "◎": ""}
               {fromLamports(
                 Object.values(payoutTickets).reduce(
                   (acc, el) => (acc += el.sum),
@@ -455,7 +459,7 @@ export const InnerBillingView = ({
             <br />
             <div className="info-header">TOTAL UNSETTLED</div>
             <div className="escrow">
-              ◎
+              {auctionView.auctionManager.acceptPayment == WRAPPED_SOL_MINT.toBase58()? "◎": ""}
               {fromLamports(
                 bidsToClaim.reduce(
                   (acc, el) => (acc += el.metadata.info.lastBid.toNumber()),
@@ -467,7 +471,7 @@ export const InnerBillingView = ({
             <br />
             <div className="info-header">TOTAL IN ESCROW</div>
             <div className="escrow">
-              {escrowBalance !== undefined ? `◎${escrowBalance}` : <Spin />}
+              {escrowBalance !== undefined ? `${auctionView.auction.info.tokenMint == WRAPPED_SOL_MINT.toBase58()? "◎": ""} ${escrowBalance}` : <Spin />}
             </div>
             <br />
             {hasParticipation && (
@@ -476,7 +480,7 @@ export const InnerBillingView = ({
                   TOTAL UNREDEEMED PARTICIPATION FEES OUTSTANDING
                 </div>
                 <div className="outstanding-open-editions">
-                  ◎{fromLamports(participationUnredeemedTotal, mint)}
+                {auctionView.auctionManager.acceptPayment == WRAPPED_SOL_MINT.toBase58()? "◎": ""}{fromLamports(participationUnredeemedTotal, mint)}
                 </div>
                 <br />
               </>

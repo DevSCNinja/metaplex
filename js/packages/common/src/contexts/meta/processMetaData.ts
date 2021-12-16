@@ -14,7 +14,7 @@ import {
 import { ParsedAccount } from '../accounts/types';
 import { METADATA_PROGRAM_ID, pubkeyToString } from '../../utils';
 
-export const processMetaData: ProcessAccountsFunc = (
+export const processMetaData: ProcessAccountsFunc = async (
   { account, pubkey },
   setter,
 ) => {
@@ -23,16 +23,15 @@ export const processMetaData: ProcessAccountsFunc = (
     if (isMetadataV1Account(account)) {
       const metadata = decodeMetadata(account.data);
 
-      if (
-        isValidHttpUrl(metadata.data.uri) &&
-        metadata.data.uri.indexOf('arweave') >= 0
-      ) {
+      if (isValidHttpUrl(metadata.data.uri)) {
         const parsedAccount: ParsedAccount<Metadata> = {
           pubkey,
           account,
           info: metadata,
         };
-        setter('metadataByMint', metadata.mint, parsedAccount);
+
+        await setter('metadataByMint', metadata.mint, parsedAccount);
+        await setter('metadataByMetadata', pubkey, parsedAccount);
       }
     }
 

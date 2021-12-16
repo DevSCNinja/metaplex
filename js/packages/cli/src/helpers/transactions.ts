@@ -102,7 +102,7 @@ export async function sendSignedTransaction({
       txid,
       timeout,
       connection,
-      'recent',
+      'confirmed',
       true,
     );
 
@@ -146,7 +146,7 @@ export async function sendSignedTransaction({
     done = true;
   }
 
-  log.debug('Latency', txid, getUnixTs() - startTime);
+  log.debug('Latency (ms)', txid, getUnixTs() - startTime);
   return { txid, slot };
 }
 
@@ -240,9 +240,9 @@ async function awaitTransactionSignatureConfirmation(
               done = true;
               reject(status.err);
             } else if (!status.confirmations) {
-              log.error('REST no confirmations for', txid, status);
+              log.debug('REST no confirmations for', txid, status);
             } else {
-              log.info('REST confirmation for', txid, status);
+              log.debug('REST confirmation for', txid, status);
               done = true;
               resolve(status);
             }

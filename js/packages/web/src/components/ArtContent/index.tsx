@@ -7,6 +7,7 @@ import { useCachedImage, useExtendedArt } from '../../hooks';
 import { Stream, StreamPlayerApi } from '@cloudflare/stream-react';
 import { PublicKey } from '@solana/web3.js';
 import { getLast } from '../../utils/utils';
+import styled from 'styled-components';
 
 const MeshArtContent = ({
   uri,
@@ -33,7 +34,7 @@ const MeshArtContent = ({
         uri={uri}
         className={className}
         preview={false}
-        style={{ width: 300, ...style }}
+        style={{ width: '100%', ...style }}
       />
     );
   }
@@ -41,7 +42,7 @@ const MeshArtContent = ({
   return <MeshViewer url={renderURL} className={className} style={style} />;
 };
 
-const CachedImageContent = ({
+export const CachedImageContent = ({
   uri,
   className,
   preview,
@@ -52,21 +53,17 @@ const CachedImageContent = ({
   preview?: boolean;
   style?: React.CSSProperties;
 }) => {
-  const [loaded, setLoaded] = useState<boolean>(false);
   const { cachedBlob } = useCachedImage(uri || '');
 
   return (
     <Image
+      fallback="image-placeholder.svg"
       src={cachedBlob}
       preview={preview}
       wrapperClassName={className}
       loading="lazy"
       wrapperStyle={{ ...style }}
-      onLoad={e => {
-        setLoaded(true);
-      }}
       placeholder={<ThreeDots />}
-      {...(loaded ? {} : { height: 200 })}
     />
   );
 };
@@ -115,10 +112,13 @@ const VideoArtContent = ({
       likelyVideo.startsWith('https://watch.videodelivery.net/') ? (
       <div className={`${className} square`}>
         <Stream
+          // @ts-ignore
           streamRef={(e: any) => playerRef(e)}
           src={likelyVideo.replace('https://watch.videodelivery.net/', '')}
           loop={true}
+          // @ts-ignore
           height={600}
+          // @ts-ignore
           width={600}
           controls={false}
           videoDimensions={{
@@ -158,6 +158,11 @@ const VideoArtContent = ({
   return content;
 };
 
+const HTMLWrapper = styled.div`
+  padding-top: 100%;
+  position: relative;
+`;
+
 const HTMLContent = ({
   uri,
   animationUrl,
@@ -175,27 +180,55 @@ const HTMLContent = ({
   files?: (MetadataFile | string)[];
   artView?: boolean;
 }) => {
-  if (!artView){
-    return <CachedImageContent
-    uri={uri}
-    className={className}
-    preview={preview}
-    style={style}
-  />
+  const [loaded, setLoaded] = useState<boolean>(false);
+  if (!artView) {
+    return (
+      <CachedImageContent
+        uri={uri}
+        className={className}
+        preview={preview}
+        style={style}
+      />
+    );
   }
   const htmlURL =
     files && files.length > 0 && typeof files[0] === 'string'
       ? files[0]
       : animationUrl;
   return (
-    <iframe allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
-      sandbox="allow-scripts"
-      frameBorder="0"
-      src={htmlURL}
-      className={className}
-      style={style}></iframe>);
+    <HTMLWrapper>
+      {!loaded && (
+        <ThreeDots
+          style={{
+            width: '100%',
+            height: '100%',
+            top: 0,
+            left: 0,
+            position: 'absolute',
+          }}
+        />
+      )}
+      <iframe
+        allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+        sandbox="allow-scripts"
+        frameBorder="0"
+        src={htmlURL}
+        className={className}
+        onLoad={() => {
+          setLoaded(true);
+        }}
+        style={{
+          ...style,
+          height: !loaded ? 0 : '100%',
+          width: '100%',
+          top: 0,
+          left: 0,
+          position: 'absolute',
+        }}
+      ></iframe>
+    </HTMLWrapper>
+  );
 };
-
 
 export const ArtContent = ({
   category,
@@ -225,66 +258,91 @@ export const ArtContent = ({
   files?: (MetadataFile | string)[];
   artView?: boolean;
 }) => {
+  const [uriState, setUriState] = useState<string | undefined>();
+  const [animationURLState, setAnimationURLState] = useState<string | undefined>();
+  const [filesState, setFilesState] = useState<(MetadataFile | string)[] | undefined>();
+  const [categoryState, setCategoryState] = useState<MetadataCategory | undefined>();
+
   const id = pubkeyToString(pubkey);
 
   const { ref, data } = useExtendedArt(id);
 
-  if (pubkey && data) {
-    uri = data.image;
-    animationURL = data.animation_url;
-  }
+  useEffect(() => {
+    setUriState(uri);
+  }, [uri]);
 
-  if (pubkey && data?.properties) {
-    files = data.properties.files;
-    category = data.properties.category;
-  }
+  useEffect(() => {
+    setAnimationURLState(animationURL);
+  }, [animationURL]);
 
-  animationURL = animationURL || '';
+  useEffect(() => {
+    setFilesState(files);
+  }, [files]);
+
+  useEffect(() => {
+    setCategoryState(category);
+  }, [category]);
+
+  useEffect(() => {
+    if (pubkey && data) {
+      setUriState(data.image);
+      setAnimationURLState(data.animation_url);
+    }
+
+    if (pubkey && data?.properties) {
+      setFilesState(data.properties.files);
+      setCategoryState(data.properties.category);
+    }
+  }, [pubkey, data])
 
   const animationUrlExt = new URLSearchParams(
-    getLast(animationURL.split('?')),
+    getLast((animationURLState || '').split('?')),
   ).get('ext');
 
   if (
     allowMeshRender &&
-    (category === 'vr' ||
+    (categoryState === 'vr' ||
       animationUrlExt === 'glb' ||
       animationUrlExt === 'gltf')
   ) {
     return (
       <MeshArtContent
-        uri={uri}
-        animationUrl={animationURL}
+        uri={uriState}
+        animationUrl={animationURLState}
         className={className}
         style={style}
-        files={files}
+        files={filesState}
+      />
+    );
+  }
+
+  if (categoryState === 'html' || animationUrlExt === 'html') {
+    return (
+      <HTMLContent
+        uri={uriState}
+        animationUrl={animationURLState}
+        className={className}
+        preview={preview}
+        style={style}
+        files={filesState}
+        artView={artView}
       />
     );
   }
 
   const content =
-    category === 'video' ? (
+    categoryState === 'video' ? (
       <VideoArtContent
         className={className}
         style={style}
-        files={files}
-        uri={uri}
-        animationURL={animationURL}
+        files={filesState}
+        uri={uriState}
+        animationURL={animationURLState}
         active={active}
-      />
-    ) : (category === 'html' || animationUrlExt === 'html') ? (
-      <HTMLContent
-        uri={uri}
-        animationUrl={animationURL}
-        className={className}
-        preview={preview}
-        style={style}
-        files={files}
-        artView={artView}
       />
     ) : (
       <CachedImageContent
-        uri={uri}
+        uri={uriState}
         className={className}
         preview={preview}
         style={style}

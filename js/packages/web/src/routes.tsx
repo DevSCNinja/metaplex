@@ -1,3 +1,4 @@
+import React from 'react';
 import { HashRouter, Route, Switch } from 'react-router-dom';
 import { Providers } from './providers';
 import {
@@ -10,16 +11,34 @@ import {
   AuctionCreateView,
   AuctionView,
   HomeView,
+  StaticPageView,
 } from './views';
 import { AdminView } from './views/admin';
+import PackView from './views/pack';
+import { PackCreateView } from './views/packCreate';
 import { BillingView } from './views/auction/billing';
 
 export function Routes() {
+  const shouldEnableNftPacks = process.env.NEXT_ENABLE_NFT_PACKS === 'true';
   return (
     <>
       <HashRouter basename={'/'}>
         <Providers>
           <Switch>
+            {shouldEnableNftPacks && (
+              <Route
+                exact
+                path="/admin/pack/create/:stepParam?"
+                component={() => <PackCreateView />}
+              />
+            )}
+            {shouldEnableNftPacks && (
+              <Route
+                exact
+                path="/pack/:packKey"
+                component={() => <PackView />}
+              />
+            )}
             <Route exact path="/admin" component={() => <AdminView />} />
             <Route
               exact
@@ -39,6 +58,7 @@ export function Routes() {
             <Route exact path="/art/:id" component={() => <ArtView />} />
             <Route exact path="/artists/:id" component={() => <ArtistView />} />
             <Route exact path="/artists" component={() => <ArtistsView />} />
+
             <Route
               exact
               path="/auction/create/:step_param?"
@@ -54,6 +74,7 @@ export function Routes() {
               path="/auction/:id/billing"
               component={() => <BillingView />}
             />
+            <Route path="/about" component={() => <StaticPageView />} />
             <Route path="/" component={() => <HomeView />} />
           </Switch>
         </Providers>

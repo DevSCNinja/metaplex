@@ -1,14 +1,12 @@
-use {
-    crate::{
-        deprecated_instruction::{MintPrintingTokensViaTokenArgs, SetReservationListArgs},
-        state::{Creator, Data, EDITION, EDITION_MARKER_BIT_SIZE, PREFIX},
-    },
-    borsh::{BorshDeserialize, BorshSerialize},
-    solana_program::{
-        instruction::{AccountMeta, Instruction},
-        pubkey::Pubkey,
-        sysvar,
-    },
+use crate::{
+    deprecated_instruction::{MintPrintingTokensViaTokenArgs, SetReservationListArgs},
+    state::{Creator, Data, EDITION, EDITION_MARKER_BIT_SIZE, PREFIX},
+};
+use borsh::{BorshDeserialize, BorshSerialize};
+use solana_program::{
+    instruction::{AccountMeta, Instruction},
+    pubkey::Pubkey,
+    sysvar,
 };
 
 #[repr(C)]
@@ -435,20 +433,14 @@ pub fn mint_new_edition_from_master_edition_via_token(
 
 /// Sign Metadata
 #[allow(clippy::too_many_arguments)]
-pub fn sign_metadata(
-    program_id: Pubkey,
-    metadata: Pubkey,
-    creator: Pubkey,
-) -> Instruction {
+pub fn sign_metadata(program_id: Pubkey, metadata: Pubkey, creator: Pubkey) -> Instruction {
     Instruction {
         program_id,
         accounts: vec![
             AccountMeta::new(metadata, false),
             AccountMeta::new_readonly(creator, true),
         ],
-        data: MetadataInstruction::SignMetadata
-            .try_to_vec()
-            .unwrap(),
+        data: MetadataInstruction::SignMetadata.try_to_vec().unwrap(),
     }
 }
 

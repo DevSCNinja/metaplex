@@ -4,45 +4,23 @@ import { sendTransactionWithRetryWithKeypair } from '../helpers/transactions';
 import { loadCandyProgram, loadWalletKey } from '../helpers/accounts';
 import { Program } from '@project-serum/anchor';
 
+const METADATA_SIGNATURE = Buffer.from([7]); //now thats some voodoo magic. WTF metaplex? XD
+
 export async function signMetadata(
   metadata: string,
   keypair: string,
   env: string,
+  rpcUrl: string,
 ) {
   const creatorKeyPair = loadWalletKey(keypair);
-  const anchorProgram = await loadCandyProgram(creatorKeyPair, env);
-  await signWithRetry(anchorProgram, creatorKeyPair, metadata);
-}
-
-export async function signAllUnapprovedMetadata(keypair: string, env: string) {
-  const creatorKeyPair = loadWalletKey(keypair);
-  const anchorProgram = await loadCandyProgram(creatorKeyPair, env);
-  const metadataIds = await findAllUnapprovedMetadataIds(
-    anchorProgram,
-    creatorKeyPair,
-  );
-
-  for (const id in metadataIds) {
-    await signWithRetry(anchorProgram, creatorKeyPair, id);
-  }
-}
-
-// @ts-ignore
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function findAllUnapprovedMetadataIds(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  anchorProgram: Program,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  creatorKeyPair: Keypair,
-): Promise<string[]> {
-  //TODO well I need some help with that... so... help? :D
-  throw new Error('Unsupported yet');
+  const anchorProgram = await loadCandyProgram(creatorKeyPair, env, rpcUrl);
+  await signWithRetry(anchorProgram, creatorKeyPair, new PublicKey(metadata));
 }
 
 async function signWithRetry(
   anchorProgram: Program,
   creatorKeyPair: Keypair,
-  metadataAddress: string,
+  metadataAddress: PublicKey,
 ) {
   await sendTransactionWithRetryWithKeypair(
     anchorProgram.provider.connection,
@@ -62,7 +40,7 @@ export function signMetadataInstruction(
   metadata: PublicKey,
   creator: PublicKey,
 ): TransactionInstruction {
-  const data = Buffer.from([7]); //now thats bloody magic. WTF metaplex? XD
+  const data = METADATA_SIGNATURE;
 
   const keys = [
     {
