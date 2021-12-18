@@ -490,7 +490,7 @@ const Home = (props: HomeProps) => {
         <Toolbar>
           <Typography
             variant="h6"
-            style={{ fontWeight: 900, color: '#ECE3B1', flexGrow: 1 }}
+            style={{ fontWeight: 900, color: 'black', flexGrow: 1 }}
           >
             #theRealLitJesus
           </Typography>
