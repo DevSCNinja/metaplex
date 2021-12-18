@@ -397,7 +397,7 @@ const Home = (props: HomeProps) => {
       setIsMinting(false);
       setAlertState({
         open: true,
-        message: `Congratulations! Bid ${
+        message: `Congratulations! The Bid ${
           fairLaunch?.ticket.data ? 'updated' : 'inserted'
         }!`,
         severity: 'success',
